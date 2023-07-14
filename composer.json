@@ -1,0 +1,21 @@
+{
+    "name": "packitifotech/laragdads",
+    "description": "Create ads banner",
+    "type": "library",
+    "require": {
+        "ksubileau/color-thief-php": "^2.0",
+        "stil/gd-text": "^1.1"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Packitifotech\\Laragdads\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Tushar Sawant",
+            "email": "tusharsawant2427@gmail.com"
+        }
+    ]
+}
