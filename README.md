@@ -16,7 +16,7 @@ A PHP class for **Creating ads banner** from an image. Uses PHP and GD, Imagick 
 
 ## How to use
 ### Install via Composer
-The recommended way to install Color Thief is through
+The recommended way to install Laravel Gd Ads is through
 [Composer](http://getcomposer.org):
 ```bash
 composer require packitifotech/laragdads
