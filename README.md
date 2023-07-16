@@ -40,7 +40,7 @@ The `$image1` and `$image2` variable must contain absolute path of the image on 
 The `$fontPath` variable must contain absolute path of the image on the server.
 
 ```php
-ColorThief::saveAdsBannerPng(gdImage: $gdImage, storagePath: $storagePath)
+Laragdads::saveAdsBannerPng(gdImage: $gdImage, storagePath: $storagePath)
 ```
 
 You can save banner gd instance image in png by calling `saveAdsBannerPng` method
