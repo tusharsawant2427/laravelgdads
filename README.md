@@ -3,7 +3,7 @@ Laravel GD Ads
 
 A PHP class for **Creating ads banner** from an image. Uses PHP and GD, Imagick or Gmagick, color-thief-php libraries to make it happen.
 
-![example image](https://github.com/tusharsawant2427/laravelgdads/example.png)
+![example image](https://raw.githubusercontent.com/tusharsawant2427/laravelgdads/main/example.png)
 
 ## Requirements
 

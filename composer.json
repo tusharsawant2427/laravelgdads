@@ -1,6 +1,7 @@
 {
     "name": "packitifotech/laragdads",
-    "description": "Create ads banner",
+    "description": "Create ads banner using GD Image library",
+    "keywords": ["GD","GD Ads", "thief", "php", "dominant", "palette"],
     "type": "library",
     "require": {
         "ksubileau/color-thief-php": "^2.0",
