@@ -5,7 +5,9 @@
     "type": "library",
     "require": {
         "ksubileau/color-thief-php": "^2.0",
-        "stil/gd-text": "^1.1"
+        "stil/gd-text": "^1.1",
+        "packitifotech/laragdads": "dev-master"
+
     },
     "license": "MIT",
     "autoload": {
