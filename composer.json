@@ -18,5 +18,10 @@
             "name": "Tushar Sawant",
             "email": "tusharsawant2427@gmail.com"
         }
-    ]
+    ],
+    {
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
+
 }
