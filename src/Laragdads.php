@@ -183,40 +183,23 @@ class Laragdads
     private static function createSeamlessJoinedWaveBackground(string $storagePath, int $imageWidth = 1200, int $imageHeight = 200): GdImage
     {
 
-        // Get primary and secondary colors from the image
         $primaryColor = self::getImagePrimaryColor($storagePath);
         $secondaryColor = self::getMostUsedColorExcludingWhiteFamily($storagePath);
-        // Create the image canvas
         $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
-        $white = imagecolorallocate($backgroundImage, 255, 255, 255); // Background color (white)
+        $white = imagecolorallocate($backgroundImage, 255, 255, 255);
         $backgroundColor = ImageColorAllocate($backgroundImage, $primaryColor[0], $primaryColor[1], $primaryColor[2]);
 
-        imagefill($backgroundImage, 0, 0, $backgroundColor); // Fill background with white
+        imagefill($backgroundImage, 0, 0, $backgroundColor);
 
-        // Generate the primary and secondary colors for filling the sections
         $colorPrimary = imagecolorallocate($backgroundImage, $secondaryColor[0], $secondaryColor[1], $secondaryColor[2]);
 
-        // Random vertical offset for sine wave to make its position dynamic
-        $offsetY = rand(30, $imageHeight / 2); // Random offset to control where the sine wave peaks
-        $amplitude = 40; // Amplitude of the sine wave
-        $frequency = 1; // Frequency of the sine wave, controlling how many peaks the wave will have
-        $phaseShift = 100; // Random phase shift to change the starting point of the wave
-        // Log::info("offsetY " . $offsetY);
-        // Draw sine wave
-        for ($x = 0; $x < $imageWidth; $x++) {
-            // Calculate the sine wave's Y position at the current X coordinate
-            $y = sin(($x + $phaseShift) * $frequency / $imageWidth * 2 * M_PI) * $amplitude + $offsetY;
+        $offsetY = rand(30, $imageHeight / 2);
+        $amplitude = 40;
+        $frequency = 1;
+        $phaseShift = 100;
 
-            // Divide the image into two sections using the sine wave:
-            // If the current Y position is above the sine wave, use the primary color
-            // Else use the secondary color
-            // if ($x < $imageWidth / 2) {
-            //     // Left side, fill with primary color
-            //     imageline($backgroundImage, $x, 0, $x, (int)$y, $colorPrimary);
-            // } else {
-            //     // Right side, fill with secondary color
-            //     imageline($backgroundImage, $x, (int)$y, $x, $imageHeight, $colorSecondary);
-            // }
+        for ($x = 0; $x < $imageWidth; $x++) {
+            $y = sin(($x + $phaseShift) * $frequency / $imageWidth * 2 * M_PI) * $amplitude + $offsetY;
             imageline($backgroundImage, $x, (int)$y, $x, $imageHeight, $colorPrimary);
         }
 
@@ -234,7 +217,6 @@ class Laragdads
         $secondColor = self::getMostUsedColorExcludingWhiteFamily($fImagepath); // Secondary color for blending
         $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
 
-        // Load left side image
         if ($ext == "png") {
             $leftSideImage = imagecreatefrompng($fImagepath);
         } elseif ($ext == "webp") {
@@ -247,7 +229,6 @@ class Laragdads
         $resizeLImage = imagecreatetruecolor($resizeWidth, $resizeHeight);
         imagecopyresampled($resizeLImage, $leftSideImage, 0, 0, 0, 0, $resizeWidth, $resizeHeight, $lImageWidth, $lImageHeight);
 
-        // Load right side image
         if ($ext == "png") {
             $rightSideImage = imagecreatefrompng($sImagePath);
         } elseif ($ext == "webp") {
@@ -260,38 +241,31 @@ class Laragdads
         $resizeRImage = imagecreatetruecolor($resizeWidth, $resizeHeight);
         imagecopyresampled($resizeRImage, $rightSideImage, 0, 0, 0, 0, $resizeWidth, $resizeHeight, $rImageWidth, $rImageHeight);
 
-        // Merge images into the background
         imagecopyresampled($backgroundImage, $resizeLImage, 10, 10, 0, 0, 160, 180, $resizeWidth, $resizeHeight);
         imagecopyresampled($backgroundImage, $resizeRImage, 1030, 10, 0, 0, 160, 180, $resizeWidth, $resizeHeight);
 
-        // Text color and opacity
-        $alpha = 0; // Full opacity (no transparency)
+        $alpha = 0;
 
-        // Extract RGB values for secondary color (background)
         $rBg = $primaryColor[0];
         $gBg = $primaryColor[1];
         $bBg = $primaryColor[2];
 
-        // Blending font color: Use a lighter color to ensure visibility
-        $rText = 255; // Bright white for high contrast
-        $gText = 255; // Bright white for high contrast
-        $bText = 255; // Bright white for high contrast
+        $rText = 255;
+        $gText = 255;
+        $bText = 255;
 
-        // Allocate the font color with full opacity
         $blendedColor = imagecolorallocatealpha($backgroundImage, $rText, $gText, $bText, $alpha);
 
-        // Set up the text box and apply shadow for visibility
         $box = new Box($backgroundImage);
         $box->setFontFace($fontPath);
-        $box->setFontColor(new Color($rText, $gText, $bText, $alpha)); // Use high-contrast white color
-        $box->setTextShadow(new Color(0, 0, 0, 50), 2, 2); // Strong shadow to help text stand out
+        $box->setFontColor(new Color($rText, $gText, $bText, $alpha));
+        $box->setTextShadow(new Color(0, 0, 0, 50), 2, 2);
 
 
-        // Draw the main text on top of the outline
         $box->setFontSize(30);
         $box->setBox(350, 0, 550, 200);
         $box->setTextAlign('left', 'center');
-        $box->draw($text); // Draw the actual text on the background
+        $box->draw($text);
 
         return $backgroundImage;
     }
