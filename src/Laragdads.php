@@ -10,6 +10,7 @@ use GDText\Color;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use PhpParser\Node\Stmt\Else_;
 
 class Laragdads
 {
@@ -21,40 +22,34 @@ class Laragdads
     public static function getImagePrimaryColor(string $storagePath): array
     {
         $palette = ColorThief::getPalette($storagePath, 10);
-        $primaryColor = null;
-        $maxBrightness = -1;
-        $brightnessThreshold = 300; // Threshold to exclude dark colors (black family)
+        $colorUsageCount = [];
 
+        // Count occurrences of each color
         foreach ($palette as $color) {
-            // Calculate the brightness of the color (simple sum of RGB components)
-            $brightness = array_sum($color); // Sum of R, G, B values
-            // Exclude dark colors (black or near black family) based on brightness threshold
-            if ($brightness < $brightnessThreshold) {
-                continue; // Skip dark colors
+            $colorKey = implode(',', $color); // Convert color to a string key (e.g., "255,255,255")
+            if (!isset($colorUsageCount[$colorKey])) {
+                $colorUsageCount[$colorKey] = 0;
             }
-
-            // Select the color with the highest brightness
-            if ($brightness > $maxBrightness) {
-                $maxBrightness = $brightness;
-                $primaryColor = $color;
-            }
-        }
-        // If no color was found (all colors were dark), fallback to the brightest color
-        if ($primaryColor === null) {
-            $primaryColor = $palette[0];
+            $colorUsageCount[$colorKey]++;
         }
 
-        return $primaryColor;
+        // Get the most used color
+        arsort($colorUsageCount); // Sort by usage count in descending order
+        $mostUsedColorKey = array_key_first($colorUsageCount); // Get the first key (most used color)
+        $mostUsedColor = explode(',', $mostUsedColorKey); // Convert back to RGB array
+
+        return array_map('intval', $mostUsedColor); // Ensure the color values are integers
     }
 
     /**
-     * Get the most used color in an image using GD library, excluding white and white family colors.
+     * Get the most used color in an image using GD library, excluding white and black family colors.
      *
      * @param string $imagePath Path to the image.
      * @param int $whiteThreshold RGB value threshold to consider a color part of the white family.
+     * @param int $blackThreshold RGB value threshold to consider a color part of the black family.
      * @return array RGB of the most used color.
      */
-    public static function getMostUsedColorExcludingWhiteFamily(string $imagePath, int $whiteThreshold = 200): array
+    public static function getMostUsedColorExcludingWhiteAndBlackFamilies(string $imagePath, int $whiteThreshold = 200, int $blackThreshold = 50): array
     {
         // Load the image
         $image = imagecreatefromstring(file_get_contents($imagePath));
@@ -83,7 +78,12 @@ class Laragdads
 
                 // Exclude white family colors (colors close to white)
                 if ($r >= $whiteThreshold && $g >= $whiteThreshold && $b >= $whiteThreshold) {
-                    continue;  // Skip if the color is part of the white family
+                    continue; // Skip white family
+                }
+
+                // Exclude black family colors (colors close to black)
+                if ($r <= $blackThreshold && $g <= $blackThreshold && $b <= $blackThreshold) {
+                    continue; // Skip black family
                 }
 
                 // Use RGB as the key for color counting
@@ -97,14 +97,14 @@ class Laragdads
             }
         }
 
-        // If no colors are left after excluding white family, return black as the fallback
+        // If no colors are left after exclusions, return a fallback color
         if (empty($colorCount)) {
-            return [0, 0, 0];  // Black as the fallback color
+            return [128, 128, 128]; // Fallback to a neutral gray
         }
 
         // Find the most frequent color
-        arsort($colorCount);  // Sort by frequency (highest first)
-        $mostUsedColor = key($colorCount);  // Get the color with the highest frequency
+        arsort($colorCount); // Sort by frequency (highest first)
+        $mostUsedColor = key($colorCount); // Get the color with the highest frequency
 
         // Extract RGB values from the key
         list($r, $g, $b) = explode('_', $mostUsedColor);
@@ -118,42 +118,19 @@ class Laragdads
 
 
     /**
-     * @param string $storagePath
-     * @param int $imageWidth = 1200
-     * @param int $imageHeight = 200
+     * Make a color faint by blending it with white.
      *
-     * @return GdImage
+     * @param array $color RGB array ([R, G, B]).
+     * @param float $blendFactor The factor to blend with white (0.0 = no change, 1.0 = completely white).
+     * @return array Fainter RGB color.
      */
-    private static function createHorizontalWithPrimaryColorBanner(string $storagePath, int $imageWidth = 1200, int $imageHeight = 200): GdImage
+    public static function makeColorFaint(array $color, float $blendFactor = 0.3): array
     {
-        $palettes = self::getImagePrimaryColor($storagePath);
-        $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
-
-        $lightenFactor = 2.1;
-        $darkenFactor = 1.2;
-
-        $lightR = min(255, $palettes[0] * $lightenFactor);
-        $lightG = min(255, $palettes[1] * $lightenFactor);
-        $lightB = min(255, $palettes[2] * $lightenFactor);
-
-        $darkR = max(0, $palettes[0] * $darkenFactor);
-        $darkG = max(0, $palettes[1] * $darkenFactor);
-        $darkB = max(0, $palettes[2] * $darkenFactor);
-
-
-        for ($x = 0; $x < $imageWidth; $x++) {
-            $interpolation = min($x / ($imageWidth / 2), (1 - ($x - $imageWidth / 2) / ($imageWidth / 2)));
-
-            $r = (int)($lightR * (1 - $interpolation) + $darkR * $interpolation);
-            $g = (int)($lightG * (1 - $interpolation) + $darkG * $interpolation);
-            $b = (int)($lightB * (1 - $interpolation) + $darkB * $interpolation);
-
-            $color = imagecolorallocate($backgroundImage, $r, $g, $b);
-
-            imageline($backgroundImage, $x, 0, $x, $imageHeight, $color);
-        }
-
-        return $backgroundImage;
+        return [
+            (int) min(255, $color[0] + (255 - $color[0]) * $blendFactor),
+            (int) min(255, $color[1] + (255 - $color[1]) * $blendFactor),
+            (int) min(255, $color[2] + (255 - $color[2]) * $blendFactor),
+        ];
     }
 
 
@@ -175,16 +152,79 @@ class Laragdads
 
     /**
      * @param string $storagePath
-     * @param int $imageWidth = 1200
-     * @param int $imageHeight = 200
+     * @param int $imageWidth
+     * @param int $imageHeight
      *
      * @return GdImage
      */
     private static function createSeamlessJoinedWaveBackground(string $storagePath, int $imageWidth = 1200, int $imageHeight = 200): GdImage
     {
+        $primaryColor = self::getImagePrimaryColor($storagePath);
+        $secondaryColor = self::getMostUsedColorExcludingWhiteAndBlackFamilies($storagePath);
+        $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
+
+        // Create a gradient background
+        for ($y = 0; $y < $imageHeight; $y++) {
+            $gradientColor = imagecolorallocate(
+                $backgroundImage,
+                $primaryColor[0] + ($secondaryColor[0] - $primaryColor[0]) * $y / $imageHeight,
+                $primaryColor[1] + ($secondaryColor[1] - $primaryColor[1]) * $y / $imageHeight,
+                $primaryColor[2] + ($secondaryColor[2] - $primaryColor[2]) * $y / $imageHeight
+            );
+            imageline($backgroundImage, 0, $y, $imageWidth, $y, $gradientColor);
+        }
+
+        // Add multiple waves with contrasting colors
+        for ($wave = 0; $wave < 3; $wave++) {
+            // Generate a contrasting color
+            $contrastColor = [
+                255 - rand($primaryColor[0], $secondaryColor[0]),
+                255 - rand($primaryColor[1], $secondaryColor[1]),
+                255 - rand($primaryColor[2], $secondaryColor[2]),
+            ];
+
+            // Ensure RGB values stay within the valid range
+            $contrastColor = array_map(fn($value) => max(0, min(255, $value)), $contrastColor);
+
+            // Create a color with optional transparency
+            $color = imagecolorallocatealpha(
+                $backgroundImage,
+                $primaryColor[0],
+                $primaryColor[1],
+                $primaryColor[2],
+                50 // Alpha for transparency
+            );
+
+            // Wave properties
+            $amplitude = rand(20, 50);
+            $frequency = rand(1, 3);
+            $phaseShift = rand(0, 200);
+
+            // Draw the wave
+            for ($x = 0; $x < $imageWidth; $x++) {
+                $y = sin(($x + $phaseShift) * $frequency / $imageWidth * 2 * M_PI) * $amplitude + $imageHeight / 2;
+                imageline($backgroundImage, $x, (int)$y, $x, $imageHeight, $color);
+            }
+        }
+
+        // Return the generated image
+        return $backgroundImage;
+    }
+
+    /**
+     * @param string $storagePath
+     * @param int $imageWidth = 1200
+     * @param int $imageHeight = 200
+     *
+     * @return GdImage
+     */
+    private static function createSeamlessJoinedWaveBackground1(string $storagePath, int $imageWidth = 1200, int $imageHeight = 200): GdImage
+    {
 
         $primaryColor = self::getImagePrimaryColor($storagePath);
-        $secondaryColor = self::getMostUsedColorExcludingWhiteFamily($storagePath);
+        $secondaryColor = self::getMostUsedColorExcludingWhiteAndBlackFamilies($storagePath);
+        $primaryColor = self::makeColorFaint($primaryColor, 0.3); // Blend 30% with white
+        $secondaryColor = self::makeColorFaint($secondaryColor, 0.3); // Blend 30% with white
         $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
         $white = imagecolorallocate($backgroundImage, 255, 255, 255);
         $backgroundColor = ImageColorAllocate($backgroundImage, $primaryColor[0], $primaryColor[1], $primaryColor[2]);
@@ -207,6 +247,126 @@ class Laragdads
         return $backgroundImage;
     }
 
+    /**
+     * @param string $storagePath
+     * @param int $imageWidth
+     * @param int $imageHeight
+     *
+     * @return GdImage
+     */
+    private static function createAbstractPatternedBackground(string $storagePath, int $imageWidth = 1200, int $imageHeight = 200): GdImage
+    {
+        // Light blue pastel background
+        $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
+        $backgroundColor = imagecolorallocate($backgroundImage, 204, 230, 255); // Pastel blue color
+        imagefill($backgroundImage, 0, 0, $backgroundColor);
+
+        // Get primary color to overlay on top
+        $primaryColor = self::getImagePrimaryColor($storagePath);
+
+        // Overlay primary color with some transparency to create an effect
+        $overlayAlpha = 90;  // Adjust transparency (higher value makes the overlay more visible)
+        $overlayColor = imagecolorallocatealpha(
+            $backgroundImage,
+            $primaryColor[0],
+            $primaryColor[1],
+            $primaryColor[2],
+            $overlayAlpha
+        );
+
+        // Apply the primary color overlay
+        imagefilledrectangle($backgroundImage, 0, 0, $imageWidth, $imageHeight, $overlayColor);
+
+        // Adjust the color for shapes (lighter tone)
+        $faintRed = max(0, min(255, $primaryColor[0] + rand(-30, 30)));
+        $faintGreen = max(0, min(255, $primaryColor[1] + rand(-30, 30)));
+        $faintBlue = max(0, min(255, $primaryColor[2] + rand(-30, 30)));
+
+        // Create a lighter faint color with higher transparency for shapes
+        $faintColor = imagecolorallocatealpha(
+            $backgroundImage,
+            $faintRed,
+            $faintGreen,
+            $faintBlue,
+            120 // Higher alpha for increased transparency (lighter color)
+        );
+
+        // Predefined pattern with limited shapes
+        $numColumns = 6;  // Number of columns for shapes
+        $numRows = 3;     // Number of rows for shapes
+
+        // Calculate shape width and height
+        $shapeWidth = $imageWidth / $numColumns;
+        $shapeHeight = $imageHeight / $numRows;
+
+        // Place shapes in a grid pattern
+        for ($row = 0; $row < $numRows; $row++) {
+            for ($col = 0; $col < $numColumns; $col++) {
+                $x1 = $col * $shapeWidth;
+                $y1 = $row * $shapeHeight;
+
+                // Add alternating long rectangles
+                if (($row + $col) % 2 == 0) {
+                    imagefilledrectangle(
+                        $backgroundImage,
+                        $x1,
+                        $y1,
+                        $x1 + $shapeWidth,
+                        $y1 + $shapeHeight,
+                        $faintColor
+                    );
+                } else {
+                    // Add diagonal lines
+                    imageline(
+                        $backgroundImage,
+                        $x1,
+                        $y1,
+                        $x1 + $shapeWidth,
+                        $y1 + $shapeHeight,
+                        $faintColor
+                    );
+                }
+
+                // Optional: Add triangles within some shapes for variety
+                if (($row + $col) % 3 == 0) {
+                    $x2 = $x1 + $shapeWidth / 2;
+                    $y2 = $y1 + $shapeHeight / 2;
+                    imagefilledpolygon(
+                        $backgroundImage,
+                        [
+                            $x1,
+                            $y1,        // top-left
+                            $x1 + $shapeWidth,
+                            $y1,  // top-right
+                            $x2,
+                            $y2,        // center
+                        ],
+                        3,
+                        $faintColor
+                    );
+                }
+            }
+        }
+
+        // Add horizontal lines across the entire canvas to create an additional layer of pattern
+        for ($i = 0; $i < 3; $i++) {
+            $yPos = ($i + 1) * ($imageHeight / 4);
+            imageline(
+                $backgroundImage,
+                0,
+                $yPos,
+                $imageWidth,
+                $yPos,
+                $faintColor
+            );
+        }
+
+        // Return the generated image
+        return $backgroundImage;
+    }
+
+
+
     public static function createHorizontalAdsBanner(string $fImagepath, string $sImagePath, ?string $text, ?int $resizeWidth,  ?int $resizeHeight, string $fontPath): GdImage
     {
         $resizeWidth = empty($resizeWidth) ? getimagesize($fImagepath)[0] : $resizeWidth;
@@ -214,8 +374,17 @@ class Laragdads
 
         $ext = File::extension($fImagepath);
         $primaryColor = self::getImagePrimaryColor($fImagepath);
-        $secondColor = self::getMostUsedColorExcludingWhiteFamily($fImagepath); // Secondary color for blending
-        $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        $secondColor = self::getMostUsedColorExcludingWhiteAndBlackFamilies($fImagepath);
+        $rand = rand(1,3);
+        if( $rand== 1){
+            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        }else if( $rand== 2){
+            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground1($fImagepath);
+        }else if( $rand== 3){
+            $backgroundImage = Laragdads::createAbstractPatternedBackground($fImagepath);
+        }else{
+            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        }
 
         if ($ext == "png") {
             $leftSideImage = imagecreatefrompng($fImagepath);
