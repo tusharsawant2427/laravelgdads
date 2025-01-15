@@ -379,7 +379,7 @@ class Laragdads
         if( $rand== 1){
             $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
         }else if( $rand== 2){
-            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground1($fImagepath);
+            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
         }else if( $rand== 3){
             $backgroundImage = Laragdads::createAbstractPatternedBackground($fImagepath);
         }else{
