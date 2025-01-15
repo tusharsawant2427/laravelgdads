@@ -376,15 +376,16 @@ class Laragdads
         $primaryColor = self::getImagePrimaryColor($fImagepath);
         $secondColor = self::getMostUsedColorExcludingWhiteAndBlackFamilies($fImagepath);
         $rand = rand(1,3);
-        if( $rand== 1){
+        // if( $rand== 1){
+        //     $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        // }else if( $rand== 2){
+        //     $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        // }else if( $rand== 3){
+        //     $backgroundImage = Laragdads::createAbstractPatternedBackground($fImagepath);
+        // }else{
+        //     $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
+        // }
             $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
-        }else if( $rand== 2){
-            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
-        }else if( $rand== 3){
-            $backgroundImage = Laragdads::createAbstractPatternedBackground($fImagepath);
-        }else{
-            $backgroundImage = Laragdads::createSeamlessJoinedWaveBackground($fImagepath);
-        }
 
         if ($ext == "png") {
             $leftSideImage = imagecreatefrompng($fImagepath);
