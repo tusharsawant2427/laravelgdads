@@ -9,8 +9,6 @@ use Exception;
 use GDText\Box;
 use GDText\Color;
 
-use function PHPUnit\Framework\isNumeric;
-
 class ImageService
 {
     public const DEFAULT_IMAGE_WIDTH = 300;
@@ -211,7 +209,7 @@ class ImageService
                 $image,
                 ...array_map(
                     function ($start, $end) use ($y, $height) {
-                        return $start + ($end - $start) * $y / $height;
+                        return (int) round($start + ($end - $start) * $y / $height);
                     },
                     $startColor,
                     $endColor
@@ -721,7 +719,7 @@ class ImageService
                 $endY = $corner[1] + sin($angle) * $length;
 
                 imagesetthickness($backgroundImage, rand(1, 3));
-                imageline($backgroundImage, $corner[0], $corner[1], $endX, $endY, $burstColor);
+                imageline($backgroundImage, (int) $corner[0], (int) $corner[1], (int) round($endX), (int) round($endY), $burstColor);
             }
         }
 
