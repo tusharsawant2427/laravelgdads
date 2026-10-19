@@ -22,6 +22,11 @@ final class PromoLayout extends AbstractLayout
 
     public function render(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
     {
+        if ($spec->aspectRatio() >= 4.5 && $spec->height >= 120) {
+            $this->strip($canvas, $spec, $theme, $headingFont, $bodyFont);
+
+            return;
+        }
         if ($spec->aspectRatio() < 2.2 || $spec->height < 240) {
             $this->fallback($canvas, $spec, $theme, $headingFont, $bodyFont);
 
@@ -116,9 +121,9 @@ final class PromoLayout extends AbstractLayout
 
     // ---------------------------------------------------------------- middle
 
-    private function hero(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $font, int $x, int $y, int $w, int $h): void
+    private function hero(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $font, int $x, int $y, int $w, int $h, ?array $only = null, bool $tight = false): void
     {
-        $lines = $spec->hero !== [] ? $spec->hero : array_filter([$spec->headline]);
+        $lines = $only ?? ($spec->hero !== [] ? $spec->hero : array_filter([$spec->headline]));
         if ($lines === []) {
             return;
         }
@@ -131,10 +136,12 @@ final class PromoLayout extends AbstractLayout
             $byWidth = (int) floor($w / (self::SQUEEZE * $natural / 100));
             $sizes[$i] = max(10, min($byWidth, (int) round($h * $caps[$i])));
         }
-        $gap = fn (int $s) => (int) round($s * 0.08);
+        $gap = fn (int $s) => $tight ? 0 : (int) round($s * 0.08);
+        // Strips stack the lines tighter: the next line starts 0.95 x the size below, not a full line box.
+        $step = fn (int $s) => $tight ? (int) round($s * 0.95) : (int) round($s * 1.25);
         $total = 0;
         foreach ($sizes as $i => $s) {
-            $total += (int) round($s * 1.25) + ($i > 0 ? $gap($s) : 0);
+            $total += ($i === count($sizes) - 1 ? (int) round($s * 1.25) : $step($s)) + ($i > 0 ? $gap($s) : 0);
         }
         if ($total > $h) {
             $f = $h / $total;
@@ -147,8 +154,8 @@ final class PromoLayout extends AbstractLayout
             if ($i > 0) {
                 $cursor += $gap($sizes[$i]);
             }
-            [, $lh] = $canvas->squeezedLine($text, $font, $sizes[$i], $x, $cursor, $w, $colors[$i], self::SQUEEZE);
-            $cursor += $lh;
+            $canvas->squeezedLine($text, $font, $sizes[$i], $x, $cursor, $w, $colors[$i], self::SQUEEZE);
+            $cursor += $step($sizes[$i]);
         }
     }
 
@@ -213,7 +220,8 @@ final class PromoLayout extends AbstractLayout
         };
 
         $texts = count(array_filter($norm, fn ($n) => $n[0] !== '---'));
-        $base = max(9, (int) round($h * 0.1));
+        // Tall columns start at 10% of their height; short ones (strips) can use more of it, split between the lines.
+        $base = $h > 300 ? max(9, (int) round($h * 0.1)) : max(9, min(34, (int) floor($h / (max(1, $texts) * 1.45))));
         [$blocks, $total] = $measure(9);
         for (; $base >= 9; $base--) {
             [$blocks, $total] = $measure($base);
@@ -292,6 +300,73 @@ final class PromoLayout extends AbstractLayout
         $textW = $bx - $x - (int) round($ph * 0.5);
         $fit = $font->fit($label, $textW, (int) round($ph * 0.78), (int) round($ph * 0.3), 8, 1.2, 2);
         $canvas->lines($fit['lines'], $font, $fit['size'], $x + (int) round($ph * 0.35), $py + intdiv($ph - $fit['height'], 2), $textW, [28, 40, 70], 'center', $fit['lineHeight']);
+    }
+
+    // ---------------------------------------------------------------- strip
+
+    /**
+     * The same three-zone promo squeezed into a 6:1 strip (e.g. 1200x200): whole cover in a card on the left with the
+     * seal on its corner, a two-line stacked title in the middle, two info lines + plaque + arrow button on the right.
+     */
+    private function strip(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
+    {
+        $w = $spec->width;
+        $h = $spec->height;
+        $m = (int) round($h * 0.08);
+        $rich = new RichText($bodyFont, $headingFont);
+
+        // Product: the whole, uncropped image in a card (a white plate when it is a studio packshot).
+        $cardH = $h - 2 * $m;
+        $cardW = (int) round($cardH * 0.8);
+        if ($spec->hasImages()) {
+            $fitted = clone $spec;
+            $fitted->imageFit = 'contain';
+            $this->card($canvas, $fitted, $spec->images[0], (int) round($m * 1.6), $m, $cardW, $cardH, (int) round($m * 0.6));
+        }
+        $bookRight = (int) round($m * 1.6) + $cardW;
+
+        if ($spec->seal !== null) {
+            $d = (int) round($h * 0.44);
+            $this->seal($canvas, $spec, $theme, $headingFont, $bookRight - (int) round($d * 0.1), $h - $m - (int) round($d * 0.42), $d);
+        }
+        if ($spec->logo !== null) {
+            $this->logo($canvas, $spec, (int) round($m * 1.8), (int) round($m * 1.5), (int) round($cardW * 0.8), (int) round($h * 0.12), true);
+        }
+
+        // Title: two stacked lines, each squeezed to fill the column.
+        $heroX = $bookRight + (int) round($m * 3.2);
+        $heroW = (int) round($w * 0.36);
+        $lines = array_slice($spec->hero !== [] ? $spec->hero : array_filter([$spec->headline]), 0, 2);
+        if ($lines !== []) {
+            $this->hero($canvas, $spec, $theme, $headingFont, $heroX, $m, $heroW, $cardH, $lines, true);
+        }
+
+        // Info column: details on top, plaque + button along the bottom.
+        $infoX = $heroX + $heroW + (int) round($m * 2.5);
+        $infoW = $w - $infoX - (int) round($m * 1.6);
+        $rowH = (int) round($h * 0.31);
+        $rowY = $h - $m - $rowH;
+        $hasRow = $spec->tag !== null || $spec->cta;
+
+        $items = array_values(array_filter($spec->details, fn ($d) => (is_array($d) ? $d[0] : $d) !== '---'));
+        $items = array_slice($items, 0, 2);
+        if ($items !== []) {
+            $boxH = ($hasRow ? $rowY - (int) round($m * 0.5) : $h - $m) - $m;
+            $this->details($canvas, $theme, $rich, $items, $infoX, $m, $infoW, $boxH);
+        }
+
+        if ($hasRow) {
+            $gap = (int) round($m * 0.8);
+            $tagW = 0;
+            if ($spec->tag !== null) {
+                $tagW = (int) round($infoW * 0.3);
+                $this->plaque($canvas, $theme, $headingFont, $spec->tag, $infoX, $rowY, $tagW, $rowH);
+                $tagW += $gap;
+            }
+            if ($spec->cta) {
+                $this->arrowPill($canvas, $theme, $headingFont, $spec->cta, $infoX + $tagW, $rowY, $infoW - $tagW, $rowH);
+            }
+        }
     }
 
     // -------------------------------------------------------------- fallback

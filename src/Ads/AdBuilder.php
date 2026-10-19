@@ -6,6 +6,7 @@ use GdImage;
 use InvalidArgumentException;
 use Packitifotech\Laragdads\Ads\Ai\AiBackground;
 use Packitifotech\Laragdads\Ads\Layouts\BooksLayout;
+use Packitifotech\Laragdads\Ads\Layouts\CompanionLayout;
 use Packitifotech\Laragdads\Ads\Layouts\HeroLayout;
 use Packitifotech\Laragdads\Ads\Layouts\Layout;
 use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
@@ -29,6 +30,7 @@ final class AdBuilder
 {
     /** @var array<string, Layout|class-string<Layout>> */
     private static array $layouts = [
+        'companion' => CompanionLayout::class,
         'promo' => PromoLayout::class,
         'books' => BooksLayout::class,
         'split' => SplitLayout::class,
@@ -162,6 +164,57 @@ final class AdBuilder
     public function details(array $lines): self
     {
         $this->spec->details = array_values($lines);
+
+        return $this;
+    }
+
+    /** Handwritten line on a brush stroke above the title (companion layout). */
+    public function tagline(?string $text): self
+    {
+        $this->spec->tagline = $text;
+
+        return $this;
+    }
+
+    /**
+     * Feature cards with a round icon (companion layout). Each item: [icon, title, subtitle] or [title, subtitle]
+     * (icons are then chosen in turn). Icons: see Support\Icons::names().
+     *
+     * @param array<int, array<int, string>> $items
+     */
+    public function highlights(array $items): self
+    {
+        $auto = ['book', 'doc', 'list', 'bulb', 'target', 'star'];
+        $this->spec->highlights = [];
+        foreach (array_values($items) as $i => $item) {
+            $this->spec->highlights[] = count($item) >= 3
+                ? [$item[0], $item[1], $item[2]]
+                : [$auto[$i % count($auto)], $item[0], $item[1] ?? ''];
+        }
+
+        return $this;
+    }
+
+    /** Handwritten slogan on a brush blob, one word per line (companion layout). */
+    public function slogan(string ...$words): self
+    {
+        $this->spec->slogan = array_values($words);
+
+        return $this;
+    }
+
+    /** A picture on a white background that melts into the bottom-right of the page (e.g. an AI-made study-desk illustration). */
+    public function artwork(GdImage|string|null $image): self
+    {
+        $this->spec->artwork = $image;
+
+        return $this;
+    }
+
+    /** Italic / handwritten font for the tagline and slogan (default: bundled Liberation Serif Bold Italic). */
+    public function scriptFont(?string $fontPath): self
+    {
+        $this->spec->scriptFontPath = $fontPath;
 
         return $this;
     }
@@ -392,10 +445,17 @@ final class AdBuilder
         if ($aiImage !== null) {
             $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
             // With a panel behind the text the photo can stay brighter and more visible.
-            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel);
-            $spec->textShadow = $spec->aspectRatio() >= 3.2;   // strips: light overlay + text shadow keep the scene visible
+            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel, $layout instanceof PromoLayout ? 0.62 : null);   // promo text has no panel or shadow: darker base
+            $spec->textShadow = $spec->aspectRatio() >= 3.2 && !$layout instanceof PromoLayout;   // photo strips: light overlay + text shadow keep the scene visible
+            if ($layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2) {
+                Backgrounds::arcsDecor($canvas, $theme);   // the promo look (pale disc behind the book, gold arcs) over the AI art
+            }
         } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
-            $style = $spec->background === 'auto' && $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 ? 'arcs' : $spec->background;
+            $style = $spec->background === 'auto' ? match (true) {
+                $layout instanceof CompanionLayout => 'paper',
+                $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 => 'arcs',
+                default => 'auto',
+            } : $spec->background;
             Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
         }
         $layout->render($canvas, $spec, $theme, $heading, $body);
@@ -521,7 +581,7 @@ final class AdBuilder
     {
         $name = $this->spec->layout;
         if ($name === 'auto' && $this->spec->hero !== []) {
-            $name = 'promo';
+            $name = $this->spec->highlights !== [] ? 'companion' : 'promo';
         }
         if ($name === 'auto') {
             $ratio = $this->spec->aspectRatio();

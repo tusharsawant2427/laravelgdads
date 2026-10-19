@@ -171,6 +171,9 @@ final class AiStyles
             return str_replace('{colors}', $colors, self::WIDE[$style]) . ', photorealistic, no text, no letters, no logo, no people';
         }
         $template = self::EDUCATION[$style] ?? self::ART[$style];
+        if ($wide && !$isScene) {
+            $template .= ', extremely wide panoramic banner composition, horizontal, calm empty center';
+        }
 
         return str_replace('{colors}', $colors, $template) . ', ' . ($isScene ? self::SUFFIX : 'no text, no letters, no people, empty center space');
     }

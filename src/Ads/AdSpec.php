@@ -36,6 +36,20 @@ final class AdSpec
     /** @var array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool,topic:?string}|null AI Horde background request */
     public ?array $ai = null;
 
+    /** Companion layout: handwritten line on a brush stroke above the title. */
+    public ?string $tagline = null;
+
+    /** @var array<int, array{0:string,1:string,2:string}> [icon, title, subtitle] feature cards (companion layout) */
+    public array $highlights = [];
+
+    /** @var string[] handwritten slogan words, e.g. ['Concepts', 'Practice', 'Confidence'] */
+    public array $slogan = [];
+
+    /** Picture on a white background melted into the bottom-right of the page (multiply blend). */
+    public GdImage|string|null $artwork = null;
+
+    public ?string $scriptFontPath = null;
+
     public GdImage|string|null $footerLogo = null;
     public string $ctaStyle = 'solid';
     public bool $book3d = false;

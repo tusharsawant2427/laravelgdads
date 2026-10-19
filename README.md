@@ -12,8 +12,10 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 ![leaderboard](docs/examples/leaderboard.png)
 ![strip](docs/examples/strip-lines.png)
 ![promo](docs/examples/promo.png)
-![strip ssc](docs/examples/strip-ssc-0.png)
-![strip physics](docs/examples/strip-physics-1.png)
+![companion](docs/examples/companion.png)
+![companion strip](docs/examples/companion-strip.png)
+![strip ssc](docs/examples/strip-ai-ssc-blueprint.png)
+![strip physics](docs/examples/strip-design-physics.png)
 
 The images above come from `php examples/generate.php`.
 
@@ -59,6 +61,25 @@ Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
 Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
 Everything is drawn with GD: there is no AI image generation and no network call.
 
+## Companion layout (light, illustrated)
+
+A friendly light-page design: handwritten tagline on a yellow brush stroke, a huge sticker-style title with a dark
+subject pill, four icon cards, a handwritten slogan on a blob with subject doodles, the logo at top right and a 3D
+book on a brand-coloured blob. Wide (2000x661) and 6:1 strip (1200x200) versions. See `php examples/companion.php`.
+
+```php
+Laragdads::ad()->size(AdSize::WEBSITE_BANNER)->images($cover)->logo($logo)
+    ->tagline('Your Complete Practice Companion for')
+    ->hero('MHT-CET', 'PHYSICS')
+    ->highlights([['book', '28 YEARS', 'Previous Solved Papers'], ['doc', 'Chapter-wise & Topic-wise', 'Organisation'],
+                  ['list', '4100+', 'MCQs'], ['bulb', 'Quick Review, Important Formulae & Smart Keys', 'for Last-Minute Prep']])
+    ->slogan('Concepts', 'Practice', 'Confidence')
+    ->save('ads/companion.png');
+```
+
+Icons (`Support\Icons::names()`): book, doc, list, bulb, atom, incline, prism, flask, cap, star, check, target, pencil, compass.
+`->artwork($png)` melts a picture on a white background into the bottom-right corner; `->scriptFont()` sets the handwritten font.
+
 ## AI backgrounds (AI Horde / Stable Horde)
 
 Let a Stable Diffusion model paint the background art, in a different style each time. Only the *background* is
@@ -94,8 +115,9 @@ $ad->lastAiError();  // why it fell back to the built-in background (null when A
   written for each scene (a row of books on a shelf, a long lab bench, rows of exam desks ...), not cropped from a landscape photo.
   The overlay is kept light and the headline gets a soft shadow, so the scene stays visible.
 - **Your own prompt:** `->aiBackground(prompt: 'wide panoramic photo, ...')` overrides the built-in one.
-- **Strips (1200x200):** Use the cover photo exactly as supplied, whole, with
-  `->imageFit('contain')->cutout(false)` (`php examples/strip.php`).
+- **Strips (1200x200):** the promo layout also comes in a compact strip form: whole (uncropped) cover in a card with a seal, a two-line stacked
+  title, two info lines, a plaque and an arrow button, on a designed background (`php examples/strip.php`) or on AI art behind it
+  (`->aiBackground('blueprint-science')`, `'chalkboard-doodle'`, `'fluid-gradient'`).
 - **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
 - Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.
 
