@@ -12,6 +12,8 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 ![leaderboard](docs/examples/leaderboard.png)
 ![strip](docs/examples/strip-lines.png)
 ![promo](docs/examples/promo.png)
+![ai chalkboard](docs/examples/ai-ssc-promo-chalkboard.png)
+![ai fluid](docs/examples/ai-physics-landscape-fluid.png)
 
 The images above come from `php examples/generate.php`.
 
@@ -57,10 +59,38 @@ Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
 Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
 Everything is drawn with GD: there is no AI image generation and no network call.
 
+## AI backgrounds (AI Horde / Stable Horde)
+
+Let a Stable Diffusion model paint the background art, in a different style each time. Only the *background* is
+AI generated: the cover, headline, seal and buttons are still drawn by the layout, so the model never has to
+spell anything. A contrast scrim is added automatically so the text stays readable on any result.
+
+```php
+Laragdads::ad()->size(AdSize::LANDSCAPE)->images($cover)->headline('...')->cta('Buy now')
+    ->aiBackground('random')                 // or 'neon-cyber', 'chalkboard-doodle', 'blueprint-science', ...
+    ->save('ads/ai.png');
+
+$ad->lastAi();       // ['style' => 'space-galaxy', 'prompt' => '...']  what was used
+$ad->lastAiError();  // why it fell back to the built-in background (null when AI worked)
+```
+
+- **Styles:** `cinematic-bokeh`, `flat-geometric`, `watercolor`, `neon-cyber`, `paper-cut`, `luxury-gold`,
+  `chalkboard-doodle`, `blueprint-science`, `fluid-gradient`, `memphis-fun`, `space-galaxy`, `low-poly`, or `random`
+  (`->aiBackground('random', seed: 7)` makes it reproducible). Or pass your own `prompt:`.
+- **Colours:** the default prompt names the cover's colours ("deep purple and vivid orange") so the art matches the product.
+- **Key:** set `AIHORDE_API_KEY` in your environment (never commit it). Get a free key at https://aihorde.net/register.
+  Without one the anonymous key is used, which has the lowest queue priority.
+- **Speed:** about 10 to 40 seconds per image, depending on the queue. Results are cached on disk by prompt, size and
+  seed, so re-rendering the same ad (or the same ad in other sizes) is instant. Run it in a queued job in production.
+- **Failure:** if the Horde is down, the queue is too long or the job is rejected, the ad falls back to the built-in
+  background (one automatic retry first). Pass `strict: true` to throw instead.
+- **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
+- Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.
+
 ## Requirements
 
 - PHP 8.1+ with `ext-gd` (FreeType) and `ext-mbstring`
-- Optional: `illuminate/support` (Laravel) for `saveTo()` and config
+- Optional: `ext-curl` for AI backgrounds, `illuminate/support` (Laravel) for `saveTo()` and config
 
 ## Install
 

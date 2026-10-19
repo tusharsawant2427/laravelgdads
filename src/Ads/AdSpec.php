@@ -33,6 +33,9 @@ final class AdSpec
     /** @var array{lines:string[],color:?array}|null round seal, e.g. INCLUDES / 2025 / BOARD QUESTION PAPERS */
     public ?array $seal = null;
 
+    /** @var array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool}|null AI Horde background request */
+    public ?array $ai = null;
+
     public GdImage|string|null $footerLogo = null;
     public string $ctaStyle = 'solid';
     public bool $book3d = false;

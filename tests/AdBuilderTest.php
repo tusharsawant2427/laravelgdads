@@ -4,6 +4,8 @@ namespace Packitifotech\Laragdads\Tests;
 
 use GdImage;
 use InvalidArgumentException;
+use Packitifotech\Laragdads\Ads\Ai\AiBackground;
+use Packitifotech\Laragdads\Ads\Ai\AiStyles;
 use Packitifotech\Laragdads\Ads\AdBuilder;
 use Packitifotech\Laragdads\Ads\AdSize;
 use Packitifotech\Laragdads\Ads\Backgrounds;
@@ -30,6 +32,7 @@ final class AdBuilderTest extends TestCase
 
     protected function tearDown(): void
     {
+        AiBackground::useGenerator(null);
         array_map('unlink', glob($this->dir . '/*') ?: []);
         @rmdir($this->dir);
     }
@@ -348,5 +351,65 @@ final class AdBuilderTest extends TestCase
         $theme = Theme::fromImage($path);
         $this->assertLessThan(30, Color::hueDistance($theme->primary, [140, 40, 130]));
         $this->assertLessThan(40, Color::hueDistance($theme->accent, [235, 90, 20]), 'the banner colour becomes the accent');
+    }
+
+    private function brightImage(int $w, int $h, array $rgb = [250, 250, 245]): GdImage
+    {
+        return Canvas::create($w, $h, $rgb)->image();
+    }
+
+    public function test_ai_background_is_requested_once_cached_and_painted_with_a_readable_scrim(): void
+    {
+        $calls = [];
+        AiBackground::useGenerator(function (string $prompt, int $w, int $h, array $o) use (&$calls) {
+            $calls[] = [$prompt, $w, $h];
+
+            return $this->brightImage($w, $h);     // a very bright model result: text would be unreadable on it
+        });
+
+        $ad = fn () => AdBuilder::make()->size(AdSize::LANDSCAPE)->headline('Hello world')->theme('#4c1d95')
+            ->aiBackground('watercolor', prompt: 'unit-test prompt ' . $this->dir);
+        $img = $this->decode($ad()->toPng());
+        $ad()->toPng();
+
+        $this->assertCount(1, $calls, 'second render uses the disk cache');
+        $this->assertSame([768, 448], [$calls[0][1], $calls[0][2]], 'landscape source size');
+
+        [$r, $g, $b] = $this->rgb($img, 5, 5);
+        $this->assertLessThan(150, ($r + $g + $b) / 3, 'scrim darkens a bright AI image so white text stays readable');
+    }
+
+    public function test_ai_failure_falls_back_unless_strict(): void
+    {
+        AiBackground::useGenerator(fn () => throw new \RuntimeException('horde down'));
+        $builder = AdBuilder::make()->size(300, 250)->headline('Hi')->aiBackground('random', prompt: 'fail ' . $this->dir);
+
+        $this->assertStringStartsWith("\x89PNG", $builder->toPng());
+        $this->assertNull($builder->lastAi());
+        $this->assertSame('horde down', $builder->lastAiError());
+
+        $this->expectExceptionMessage('horde down');
+        AdBuilder::make()->size(300, 250)->headline('Hi')->aiBackground('random', prompt: 'fail2 ' . $this->dir, strict: true)->render();
+    }
+
+    public function test_ai_styles_are_random_but_reproducible_and_prompts_ask_for_no_text(): void
+    {
+        $this->assertSame(AiStyles::resolve('random', 3), AiStyles::resolve('random', 3));
+        $this->assertNotSame(AiStyles::resolve('random', 0), AiStyles::resolve('random', 1));
+        foreach (AiStyles::names() as $style) {
+            $prompt = AiStyles::prompt($style, ['deep purple', 'vivid orange']);
+            $this->assertStringContainsString('deep purple', $prompt);
+            $this->assertStringContainsString('no text', $prompt);
+        }
+        $this->assertSame([768, 448], AiBackground::dimensions(3.0));
+        $this->assertSame([448, 768], AiBackground::dimensions(0.56));
+        $this->assertSame([640, 640], AiBackground::dimensions(1.0));
+        $this->assertSame('deep purple', Color::name([70, 20, 110]));
+    }
+
+    public function test_horde_sizes_are_snapped_to_multiples_of_64(): void
+    {
+        $this->assertSame(512, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(500));
+        $this->assertSame(64, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(10));
     }
 }

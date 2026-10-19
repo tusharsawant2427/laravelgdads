@@ -1,7 +1,16 @@
 {
     "name": "packitifotech/laragdads",
     "description": "Create ads banners using the GD image library",
-    "keywords": ["GD", "GD Ads", "ads", "banner", "thief", "php", "dominant", "palette"],
+    "keywords": [
+        "GD",
+        "GD Ads",
+        "ads",
+        "banner",
+        "thief",
+        "php",
+        "dominant",
+        "palette"
+    ],
     "type": "library",
     "require": {
         "php": "^8.1",
@@ -15,7 +24,8 @@
         "illuminate/support": "^10.0|^11.0"
     },
     "suggest": {
-        "illuminate/support": "Required to save banners to Laravel filesystem disks and for the service provider."
+        "illuminate/support": "Required to save banners to Laravel filesystem disks and for the service provider.",
+        "ext-curl": "Needed for AI backgrounds via the AI Horde (AdBuilder::aiBackground())."
     },
     "license": "MIT",
     "autoload": {

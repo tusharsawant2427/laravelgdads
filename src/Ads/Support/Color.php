@@ -151,6 +151,28 @@ final class Color
         return self::toHsl($color)[1];
     }
 
+    /** Plain-English colour name for prompts: "deep purple", "bright orange", "light teal". */
+    public static function name(array $color): string
+    {
+        [$h, $s, $l] = self::toHsl($color);
+        if ($s < 0.12) {
+            return $l > 0.8 ? 'white' : ($l < 0.2 ? 'black' : 'grey');
+        }
+        $hue = match (true) {
+            $h < 15 || $h >= 345 => 'red',
+            $h < 40 => 'orange',
+            $h < 65 => 'yellow',
+            $h < 165 => 'green',
+            $h < 195 => 'teal',
+            $h < 250 => 'blue',
+            $h < 290 => 'purple',
+            default => 'magenta',
+        };
+        $tone = $l < 0.28 ? 'deep ' : ($l > 0.68 ? 'light ' : ($s > 0.7 ? 'vivid ' : ''));
+
+        return $tone . $hue;
+    }
+
     private static function clamp(float|int $v): int
     {
         return (int) max(0, min(255, round($v)));

@@ -1,0 +1,123 @@
+<?php
+
+namespace Packitifotech\Laragdads\Ads\Ai;
+
+use GdImage;
+use Packitifotech\Laragdads\Ads\Support\Canvas;
+use Packitifotech\Laragdads\Ads\Support\Color;
+use Packitifotech\Laragdads\Ads\Theme;
+
+/**
+ * AI-generated ad backgrounds via the AI Horde, with a disk cache and a contrast scrim so the copy that
+ * the layout draws on top stays readable whatever the model produced.
+ */
+final class AiBackground
+{
+    /** @var (callable(string,int,int,array):GdImage)|null test hook / custom generator */
+    private static $generator = null;
+
+    /** Replace the generator (tests, or another image API): fn (string $prompt, int $w, int $h, array $options): GdImage. */
+    public static function useGenerator(?callable $generator): void
+    {
+        self::$generator = $generator;
+    }
+
+    /**
+     * @param  array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool} $config
+     * @return array{image:GdImage,style:string,prompt:string}
+     */
+    public static function fetch(array $config, Theme $theme, int $targetW, int $targetH): array
+    {
+        $style = AiStyles::resolve($config['style'], $config['seed']);
+        $prompt = $config['prompt'] ?? AiStyles::prompt($style, [Color::name($theme->primary), Color::name($theme->accent)]);
+        [$w, $h] = self::dimensions($targetW / max(1, $targetH), $config['hires']);
+
+        $cache = self::cachePath($prompt, $w, $h, $config['seed']);
+        if (is_file($cache) && ($img = @imagecreatefrompng($cache)) !== false) {
+            return ['image' => $img, 'style' => $style, 'prompt' => $prompt];
+        }
+
+        $options = array_filter(['seed' => $config['seed'] !== null ? (string) $config['seed'] : null, 'steps' => 25], fn ($v) => $v !== null);
+
+        // One retry: the Horde is crowd-sourced, so a worker can fault or a job can be censored by mistake.
+        try {
+            $image = self::generate($config, $prompt, $w, $h, $options);
+        } catch (\Throwable) {
+            unset($options['seed']);
+            $image = self::generate($config, $prompt, $w, $h, $options);
+        }
+
+        @mkdir(dirname($cache), 0775, true);
+        @imagepng($image, $cache);
+
+        return ['image' => $image, 'style' => $style, 'prompt' => $prompt];
+    }
+
+    private static function generate(array $config, string $prompt, int $w, int $h, array $options): GdImage
+    {
+        return self::$generator !== null
+            ? (self::$generator)($prompt, $w, $h, $options)
+            : (new HordeClient($config['key']))->generate($prompt, $w, $h, $options);
+    }
+
+    /**
+     * Paint the AI image as the background, then add a scrim so text at the theme's text colour reads.
+     * The scrim strength is solved from the image's average brightness.
+     */
+    public static function paint(Canvas $canvas, GdImage $image, Theme $theme): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $canvas->picture($image, 0, 0, $w, $h, 'cover');
+
+        $darkMode = Color::luminance($theme->text) > 0.5;
+        $scrim = $darkMode ? $theme->scrim() : Color::lighten($theme->primary, 0.85);
+        $avg = self::averageLuminance($image);
+        $scrimL = Color::luminance($scrim);
+        $target = $darkMode ? 0.16 : 0.8;
+
+        $needed = abs($avg - $scrimL) < 0.02 ? 0.3 : ($avg - $target) / ($avg - $scrimL);
+        $opacity = max(0.3, min(0.78, $needed));
+        $canvas->rect(0, 0, $w, $h, $scrim, $opacity);
+
+        // Slight vignette to keep the edges calm.
+        $black = [0, 0, 0];
+        if ($darkMode) {
+            $canvas->gradient($black, $black, 'vertical', [0, (int) ($h * 0.7), $w, $h - (int) ($h * 0.7)], 0.0, 0.22);
+        }
+    }
+
+    /** Sizes SD models handle well (multiples of 64, near 512x512): picked from the target aspect ratio. */
+    public static function dimensions(float $aspect, bool $hires = false): array
+    {
+        return match (true) {
+            $aspect >= 1.25 => $hires ? [1024, 576] : [768, 448],
+            $aspect <= 0.8 => $hires ? [576, 1024] : [448, 768],
+            default => $hires ? [832, 832] : [640, 640],
+        };
+    }
+
+    private static function averageLuminance(GdImage $image): float
+    {
+        $small = imagescale($image, 24, -1, IMG_BILINEAR_FIXED) ?: $image;
+        $sum = 0.0;
+        $n = 0;
+        for ($y = 0; $y < imagesy($small); $y++) {
+            for ($x = 0; $x < imagesx($small); $x++) {
+                $c = imagecolorat($small, $x, $y);
+                $sum += Color::luminance([($c >> 16) & 255, ($c >> 8) & 255, $c & 255]);
+                $n++;
+            }
+        }
+
+        return $n ? $sum / $n : 0.3;
+    }
+
+    private static function cachePath(string $prompt, int $w, int $h, ?int $seed): string
+    {
+        $dir = (function_exists('storage_path') ? @storage_path('framework/cache/laragdads-ai') : null)
+            ?: sys_get_temp_dir() . '/laragdads-ai';
+
+        return $dir . '/' . sha1($prompt . '|' . $w . 'x' . $h . '|' . ($seed ?? 'any')) . '.png';
+    }
+}
