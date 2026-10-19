@@ -407,7 +407,10 @@ final class AdBuilderTest extends TestCase
             $this->assertStringContainsString('deep purple', $prompt);
             $this->assertStringContainsString('no text', $prompt);
         }
-        $this->assertSame([768, 448], AiBackground::dimensions(3.0));
+        $this->assertSame([1152, 192], AiBackground::dimensions(6.0));
+        $this->assertSame([1024, 256], AiBackground::dimensions(4.0));
+        $this->assertSame([960, 320], AiBackground::dimensions(3.03));
+        $this->assertSame([768, 448], AiBackground::dimensions(1.9));
         $this->assertSame([448, 768], AiBackground::dimensions(0.56));
         $this->assertSame([640, 640], AiBackground::dimensions(1.0));
         $this->assertSame('deep purple', Color::name([70, 20, 110]));
@@ -430,6 +433,11 @@ final class AdBuilderTest extends TestCase
         $this->assertContains(AiStyles::resolve('abstract', 4), AiStyles::artNames());
         $this->assertSame('watercolor', AiStyles::resolve('watercolor'));
         $this->assertStringContainsString('no people', AiStyles::prompt('classroom', ['deep blue']));
+        foreach (AiStyles::educationNames() as $scene) {
+            $wide = AiStyles::prompt($scene, ['deep purple'], true);
+            $this->assertStringContainsString('wide panoramic', $wide, $scene);
+            $this->assertStringContainsString('no text', $wide, $scene);
+        }
     }
 
     public function test_builder_derives_the_scene_from_headline_and_hero_not_the_detail_list(): void

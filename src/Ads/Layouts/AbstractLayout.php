@@ -38,6 +38,7 @@ abstract class AbstractLayout implements Layout
         }
 
         $align = $spec->textAlign ?? $align;
+        $shadow = $spec->textShadow ? ['color' => [0, 0, 0], 'opacity' => 0.6] : null;
         if ($spec->textPanel) {
             $this->panel($canvas, $theme, $x, $y, $w, $h);
         }
@@ -77,11 +78,11 @@ abstract class AbstractLayout implements Layout
         $cursor = $y + max(0, intdiv($h - $content, 2));
 
         if ($head !== null) {
-            $cursor = $canvas->lines($head['lines'], $heading, $head['size'], $x, $cursor, $w, $textColor, $align, $head['lineHeight']);
+            $cursor = $canvas->lines($head['lines'], $heading, $head['size'], $x, $cursor, $w, $textColor, $align, $head['lineHeight'], $shadow);
         }
         if ($sub !== null) {
             $cursor += $gap;
-            $cursor = $canvas->lines($sub['lines'], $body, $sub['size'], $x, $cursor, $w, $textColor, $align, $sub['lineHeight'], null, 0.85);
+            $cursor = $canvas->lines($sub['lines'], $body, $sub['size'], $x, $cursor, $w, $textColor, $align, $sub['lineHeight'], $shadow, 0.92);
         }
         if ($list !== null) {
             $cursor += $gap;

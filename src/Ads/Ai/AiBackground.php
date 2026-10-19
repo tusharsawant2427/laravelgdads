@@ -37,8 +37,9 @@ final class AiBackground
     public static function fetch(array $config, Theme $theme, int $targetW, int $targetH): array
     {
         $style = AiStyles::resolve($config['style'], $config['seed'], $config['topic'] ?? null);
-        $prompt = $config['prompt'] ?? AiStyles::prompt($style, [Color::name($theme->primary), Color::name($theme->accent)]);
-        [$w, $h] = self::dimensions($targetW / max(1, $targetH), $config['hires']);
+        $aspect = $targetW / max(1, $targetH);
+        $prompt = $config['prompt'] ?? AiStyles::prompt($style, [Color::name($theme->primary), Color::name($theme->accent)], $aspect >= 2.4);
+        [$w, $h] = self::dimensions($aspect, $config['hires']);
 
         $cache = self::cachePath($prompt, $w, $h, $config['seed']);
         if (is_file($cache) && ($img = @imagecreatefrompng($cache)) !== false) {
@@ -79,8 +80,9 @@ final class AiBackground
         $h = $canvas->height();
         $strip = $w / max(1, $h) >= 3.2;
         $canvas->picture($image, 0, 0, $w, $h, 'cover', 0, [0.5, 0.55]);
-        if ($strip) {
-            // A 6:1 slice of a photo is too busy and soft to be sharp: blur it into a calm, tinted band.
+        $native = abs(imagesx($image) / max(1, imagesy($image)) - $w / max(1, $h)) / ($w / max(1, $h)) < 0.25;
+        if ($strip && !$native) {
+            // A slice cropped from a landscape photo is busy and soft: blur it into a calm band. (Natively wide images stay sharp.)
             for ($i = 0; $i < 3; $i++) {
                 imagefilter($canvas->image(), IMG_FILTER_GAUSSIAN_BLUR);
             }
@@ -93,7 +95,7 @@ final class AiBackground
         $target = $darkMode ? 0.16 : 0.8;
 
         $needed = abs($avg - $scrimL) < 0.02 ? 0.3 : ($avg - $target) / ($avg - $scrimL);
-        $opacity = $strip ? max(0.5, min(0.74, $needed)) : ($lighter ? max(0.15, min(0.4, $needed)) : max(0.3, min(0.78, $needed)));
+        $opacity = $strip ? ($native ? max(0.22, min(0.46, $needed)) : max(0.5, min(0.74, $needed))) : ($lighter ? max(0.15, min(0.4, $needed)) : max(0.3, min(0.78, $needed)));
         $canvas->rect(0, 0, $w, $h, $scrim, $opacity);
 
         if ($strip) {
@@ -112,10 +114,18 @@ final class AiBackground
         }
     }
 
-    /** Sizes SD models handle well (multiples of 64, near 512x512): picked from the target aspect ratio. */
+    /**
+     * Sizes SD models handle well (multiples of 64, about 0.2-0.3 megapixels), picked from the target aspect ratio.
+     * Wide banners are generated natively wide (6:1, 4:1, 3:1) rather than cropped from a landscape photo.
+     *
+     * @return array{0:int,1:int}
+     */
     public static function dimensions(float $aspect, bool $hires = false): array
     {
         return match (true) {
+            $aspect >= 5.0 => $hires ? [1536, 256] : [1152, 192],
+            $aspect >= 3.6 => $hires ? [1280, 320] : [1024, 256],
+            $aspect >= 2.4 => $hires ? [1152, 384] : [960, 320],
             $aspect >= 1.25 => $hires ? [1024, 576] : [768, 448],
             $aspect <= 0.8 => $hires ? [576, 1024] : [448, 768],
             default => $hires ? [832, 832] : [640, 640],

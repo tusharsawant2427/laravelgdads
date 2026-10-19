@@ -90,7 +90,11 @@ $ad->lastAiError();  // why it fell back to the built-in background (null when A
   `biology-lab`, `notebook-desk`, `graduation`, `books-stack`). `'abstract'` gives the old abstract art instead.
 - **Variety:** `->variant($n)` changes the product side (left/right, top/bottom), text alignment and panel; `->textAlign()`, `->imageSide()`
   and `->textPanel()` set them directly. With a photographic background a frosted panel is put behind the text automatically.
-- **Strips (1200x200):** the scene is blurred and tinted into a calm band. Use the cover photo exactly as supplied, whole, with
+- **Wide banners:** backgrounds are generated natively wide (1152x192 for 6:1 strips, 1024x256, 960x320) with panoramic prompts
+  written for each scene (a row of books on a shelf, a long lab bench, rows of exam desks ...), not cropped from a landscape photo.
+  The overlay is kept light and the headline gets a soft shadow, so the scene stays visible.
+- **Your own prompt:** `->aiBackground(prompt: 'wide panoramic photo, ...')` overrides the built-in one.
+- **Strips (1200x200):** Use the cover photo exactly as supplied, whole, with
   `->imageFit('contain')->cutout(false)` (`php examples/strip.php`).
 - **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
 - Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.

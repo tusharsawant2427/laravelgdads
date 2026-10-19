@@ -393,6 +393,7 @@ final class AdBuilder
             $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
             // With a panel behind the text the photo can stay brighter and more visible.
             AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel);
+            $spec->textShadow = $spec->aspectRatio() >= 3.2;   // strips: light overlay + text shadow keep the scene visible
         } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
             $style = $spec->background === 'auto' && $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 ? 'arcs' : $spec->background;
             Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);

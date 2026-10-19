@@ -33,6 +33,27 @@ final class AiStyles
         'books-stack' => 'stack of books with pencils and a green apple on a wooden desk by a window, {colors} color grading',
     ];
 
+        /**
+         * Panoramic versions of the education scenes, written for banners 2.4:1 and wider: the subject is spread along the
+         * whole width with calm space for the headline, instead of one subject in the middle.
+         *
+         * @var array<string, string>
+         */
+        private const WIDE = [
+            'classroom' => 'extremely wide panoramic photo, a long empty classroom with rows of wooden desks and a chalkboard along the whole width, soft daylight, shallow depth of field, {colors} tinted walls, symmetrical, clean',
+            'exam-hall' => 'extremely wide panoramic photo, a long row of empty exam desks and chairs in a school hall, soft daylight, shallow depth of field, {colors} color grading, symmetrical, clean',
+            'study-desk' => 'wide panoramic close-up photo of a wooden desk surface covered with stacks of books, open notebooks, pencils and an apple, window light behind, shallow depth of field, {colors} tinted, clean',
+            'library' => 'extremely wide panoramic photo, a long wooden shelf with a row of books, pencils, a globe and a desk lamp spread along the whole width, soft warm light, shallow depth of field, {colors} tinted background wall, empty clean space',
+            'science-lab' => 'extremely wide panoramic photo, a long science laboratory bench with a row of glass beakers, flasks, test tubes and a microscope spread along the whole width, soft {colors} light, shallow depth of field, dark blurred background',
+            'physics-concept' => 'wide panoramic illustration, physics theme, glowing atom orbits, pendulum, lenses and light rays spread along the whole width on a deep {colors} gradient background, thin glowing lines, clean minimal, empty center',
+            'chemistry-lab' => 'extremely wide panoramic photo, a long laboratory bench with colourful liquids in flasks and test tubes in a row, {colors} glow, dark blurred background, soft bokeh lights',
+            'maths-geometry' => 'extremely wide panoramic top view on graph paper, compass, ruler, protractor and set squares spread along the whole width, {colors} tones, soft light, clean, empty center',
+            'biology-lab' => 'extremely wide panoramic photo, a long bench with a microscope, petri dishes and green plant leaves spread along the width, fresh light, {colors} tones, shallow depth of field',
+            'notebook-desk' => 'extremely wide panoramic photo, a long desk with open notebooks, graph paper and pencils spread along the width, soft window light, {colors} tinted, shallow depth of field, empty clean space',
+            'graduation' => 'extremely wide panoramic photo, graduation caps in the air with golden confetti and bokeh across the whole width, celebration, {colors} tones, soft light, empty center',
+            'books-stack' => 'extremely wide panoramic photo, rows of stacked books with pencils and a green apple along a wooden desk by a window, {colors} tinted, shallow depth of field',
+        ];
+
     /** @var array<string, string> */
     private const ART = [
         'cinematic-bokeh' => 'cinematic abstract background, {colors} light, soft glowing particles, bokeh, smooth gradient, professional advertising backdrop',
@@ -51,9 +72,9 @@ final class AiStyles
 
     /** keyword in the ad copy => education scenes that fit it (first match with most specific subject wins) */
     private const TOPICS = [
-        'physics' => ['physics-concept', 'science-lab'],
-        'chemistry' => ['chemistry-lab', 'science-lab'],
-        'biology' => ['biology-lab', 'library'],
+        'physics' => ['physics-concept', 'science-lab', 'study-desk'],
+        'chemistry' => ['chemistry-lab', 'science-lab', 'study-desk'],
+        'biology' => ['biology-lab', 'library', 'study-desk'],
         'botany' => ['biology-lab'],
         'zoology' => ['biology-lab'],
         'math' => ['maths-geometry', 'notebook-desk'],
@@ -137,12 +158,19 @@ final class AiStyles
         return $candidates[($seed ?? random_int(0, PHP_INT_MAX)) % count($candidates)];
     }
 
-    /** @param string[] $colorNames */
-    public static function prompt(string $style, array $colorNames): string
+    /**
+     * @param string[] $colorNames
+     * @param bool     $wide       panoramic wording for banners 2.4:1 and wider
+     */
+    public static function prompt(string $style, array $colorNames, bool $wide = false): string
     {
         $colors = implode(' and ', array_unique($colorNames));
-        $template = self::EDUCATION[$style] ?? self::ART[$style];
         $isScene = isset(self::EDUCATION[$style]);
+
+        if ($wide && isset(self::WIDE[$style])) {
+            return str_replace('{colors}', $colors, self::WIDE[$style]) . ', photorealistic, no text, no letters, no logo, no people';
+        }
+        $template = self::EDUCATION[$style] ?? self::ART[$style];
 
         return str_replace('{colors}', $colors, $template) . ', ' . ($isScene ? self::SUFFIX : 'no text, no letters, no people, empty center space');
     }

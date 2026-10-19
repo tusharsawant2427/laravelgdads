@@ -48,6 +48,9 @@ final class AdSpec
 
     public string $layout = 'auto';
     public string $background = 'auto';
+    /** Soft shadow behind headline and sub-headline (automatic on AI-photo strips). */
+    public bool $textShadow = false;
+
     /** left | right (wide layouts), top | bottom (square / portrait / story) */
     public string $imageSide = 'left';
 

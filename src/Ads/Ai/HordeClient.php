@@ -35,7 +35,7 @@ final class HordeClient
     {
         [$width, $height] = [self::snap($width), self::snap($height)];
 
-        $negative = $options['negative'] ?? 'text, letters, words, watermark, logo, signature, blurry, low quality, deformed';
+        $negative = $options['negative'] ?? 'text, letters, words, numbers, watermark, logo, signature, people, faces, cluttered, busy, noisy, blurry, low quality, deformed, frame, border';
         $payload = [
             'prompt' => $prompt . ' ### ' . $negative,
             'params' => array_filter([
