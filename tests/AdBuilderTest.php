@@ -248,11 +248,21 @@ final class AdBuilderTest extends TestCase
         $render = fn (string $bg) => AdBuilder::make()->size(AdSize::STRIP)->images($book, $book)->background($bg)->headline('Hi')->toPng();
 
         $mesh = $render('mesh');
-        foreach (['lines', 'bokeh', 'hex'] as $style) {
+        foreach (['studio', 'waves', 'lines', 'bokeh', 'hex'] as $style) {
             $this->assertSame(1200, imagesx($this->decode($render($style))), $style);
             $this->assertNotSame($mesh, $render($style), $style);
         }
         $this->assertSame($render('lines'), $render('lines'), 'patterns are deterministic');
+    }
+
+    public function test_default_background_is_the_rich_studio_style(): void
+    {
+        $book = $this->packshot();
+        $ad = fn (?string $bg) => ($bg ? AdBuilder::make()->background($bg) : AdBuilder::make())
+            ->size(AdSize::LANDSCAPE)->images($book)->headline('Hi')->toPng();
+
+        $this->assertSame($ad('studio'), $ad(null));
+        $this->assertNotSame($ad('mesh'), $ad(null));
     }
 
     public function test_title_with_pipe_is_split_into_headline_and_subheadline(): void
