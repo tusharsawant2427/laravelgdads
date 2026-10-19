@@ -73,6 +73,8 @@ $ad = fn () => AdBuilder::make()
 $jobs = [
     'landscape-front' => $ad()->size(AdSize::LANDSCAPE),
     'landscape-front-back' => $ad()->size(AdSize::LANDSCAPE)->images("$out/assets/chemistry.png", "$out/assets/back.png"),
+    'strip-lines' => AdBuilder::make()->font($font)->size(AdSize::STRIP)->images("$out/assets/chemistry.png", "$out/assets/back.png")->background('lines')
+        ->headline('JEE Main Mathematics Absolute Vol 2 Notes with MCQs | As per latest syllabus issued by NTA'),
     'landscape-right' => $ad()->size(AdSize::LANDSCAPE)->imageSide('right')->images("$out/assets/physics.png", "$out/assets/chemistry.png"),
     'square' => $ad()->size(AdSize::SQUARE)->images("$out/assets/chemistry.png", "$out/assets/back.png"),
     'story' => $ad()->size(AdSize::STORY)->images("$out/assets/chemistry.png", "$out/assets/back.png"),

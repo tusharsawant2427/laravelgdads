@@ -26,10 +26,10 @@ final class ShowcaseLayout extends AbstractLayout
         $right = $spec->images[1] ?? null;
 
         if ($left !== null) {
-            $this->card($canvas, $spec, $left, $m, $m, $cardW, $cardH, $radius);
+            $this->flank($canvas, $spec, $left, $m, $m, $cardW, $cardH, $radius, 3.0);
         }
         if ($right !== null) {
-            $this->card($canvas, $spec, $right, $w - $m - $cardW, $m, $cardW, $cardH, $radius);
+            $this->flank($canvas, $spec, $right, $w - $m - $cardW, $m, $cardW, $cardH, $radius, -3.0);
         }
 
         $x0 = $left !== null ? $m * 2 + $cardW : $m * 2;
@@ -72,5 +72,19 @@ final class ShowcaseLayout extends AbstractLayout
         if ($badgeD && $left !== null) {
             $this->badge($canvas, $spec, $theme, $headingFont, $m + $cardW, $m + intdiv($badgeD, 2), $badgeD);
         }
+    }
+
+    /** Packshots (books, boxes) stand on the background with their white backdrop removed; photos get a card. */
+    private function flank(Canvas $canvas, AdSpec $spec, mixed $image, int $x, int $y, int $w, int $h, int $radius, float $tilt): void
+    {
+        $wantsCutout = $spec->cutout ?? $this->isPackshot($image);
+        if (!$wantsCutout) {
+            $this->card($canvas, $spec, $image, $x, $y, $w, $h, $radius);
+
+            return;
+        }
+
+        $angle = $h >= 110 ? $tilt : 0.0;
+        $canvas->sprite($this->prepare($image, $spec), $x + intdiv($w, 2), $y + intdiv($h, 2), $w, $h, $angle);
     }
 }

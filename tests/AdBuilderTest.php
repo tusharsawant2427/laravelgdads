@@ -241,4 +241,36 @@ final class AdBuilderTest extends TestCase
             $this->assertSame(400, imagesx($img), $style);
         }
     }
+
+    public function test_pattern_backgrounds_render_and_differ_from_plain_mesh(): void
+    {
+        $book = $this->packshot();
+        $render = fn (string $bg) => AdBuilder::make()->size(AdSize::STRIP)->images($book, $book)->background($bg)->headline('Hi')->toPng();
+
+        $mesh = $render('mesh');
+        foreach (['lines', 'bokeh', 'hex'] as $style) {
+            $this->assertSame(1200, imagesx($this->decode($render($style))), $style);
+            $this->assertNotSame($mesh, $render($style), $style);
+        }
+        $this->assertSame($render('lines'), $render('lines'), 'patterns are deterministic');
+    }
+
+    public function test_title_with_pipe_is_split_into_headline_and_subheadline(): void
+    {
+        $split = AdBuilder::make()->size(AdSize::STRIP)->headline('Maths Vol 2 | As per latest NTA syllabus')->toPng();
+        $explicit = AdBuilder::make()->size(AdSize::STRIP)->headline('Maths Vol 2')->subheadline('As per latest NTA syllabus')->toPng();
+
+        $this->assertSame($explicit, $split);
+    }
+
+    public function test_theme_from_front_and_back_cover_follows_the_front_cover(): void
+    {
+        $front = $this->packshot('front.png');
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(20, 16, 160, 240, [20, 150, 110]);
+        imagepng($c->image(), $this->dir . '/back.png');
+
+        $theme = Theme::fromImages([$front, $this->dir . '/back.png']);
+        $this->assertLessThan(40, Color::hueDistance($theme->primary, [140, 30, 150]));
+    }
 }

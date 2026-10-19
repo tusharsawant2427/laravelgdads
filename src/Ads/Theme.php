@@ -35,10 +35,26 @@ final class Theme
     /** Pick colours from the dominant, most colourful tones of an image. */
     public static function fromImage(string|GdImage $image): self
     {
-        try {
-            $palette = ColorThief::getPalette($image, 6, 10) ?: [];
-        } catch (\Throwable) {
-            $palette = [];
+        return self::fromImages([$image]);
+    }
+
+    /**
+     * Pick colours from several images (e.g. front and back cover). Earlier images weigh more, so the
+     * front cover decides the brand colour and the back cover only fills in supporting tones.
+     *
+     * @param array<string|GdImage> $images
+     */
+    public static function fromImages(array $images): self
+    {
+        $palette = [];
+        foreach (array_values($images) as $n => $image) {
+            try {
+                $colors = ColorThief::getPalette($image, 6, 10) ?: [];
+            } catch (\Throwable) {
+                $colors = [];
+            }
+            // Later images contribute fewer colours, appended after the earlier (more important) ones.
+            array_push($palette, ...array_slice($colors, 0, max(2, 6 - 2 * $n)));
         }
 
         if ($palette === []) {
@@ -76,7 +92,8 @@ final class Theme
         $secondary = null;
         $accent = null;
         foreach (array_slice($palette, 1) as $c) {
-            if ($secondary === null && $score($c) > 0.12 && Color::hueDistance($primary, $c) >= 25) {
+            // A neighbouring hue gives a calm gradient; a far-away one (purple -> green) looks garish.
+            if ($secondary === null && $score($c) > 0.12 && Color::hueDistance($primary, $c) >= 20 && Color::hueDistance($primary, $c) <= 70) {
                 $secondary = $c;
             } elseif ($accent === null && Color::saturation($c) >= 0.5 && Color::hueDistance($primary, $c) >= 70) {
                 $accent = $c;
