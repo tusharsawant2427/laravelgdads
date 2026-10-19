@@ -16,6 +16,14 @@ final class AiBackground
     /** @var (callable(string,int,int,array):GdImage)|null test hook / custom generator */
     private static $generator = null;
 
+    private static ?string $cacheDir = null;
+
+    /** Where generated backgrounds are cached (default: Laravel storage/framework/cache/laragdads-ai, else the system temp dir). */
+    public static function useCacheDir(?string $dir): void
+    {
+        self::$cacheDir = $dir;
+    }
+
     /** Replace the generator (tests, or another image API): fn (string $prompt, int $w, int $h, array $options): GdImage. */
     public static function useGenerator(?callable $generator): void
     {
@@ -23,12 +31,12 @@ final class AiBackground
     }
 
     /**
-     * @param  array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool} $config
+     * @param  array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool,topic?:?string} $config
      * @return array{image:GdImage,style:string,prompt:string}
      */
     public static function fetch(array $config, Theme $theme, int $targetW, int $targetH): array
     {
-        $style = AiStyles::resolve($config['style'], $config['seed']);
+        $style = AiStyles::resolve($config['style'], $config['seed'], $config['topic'] ?? null);
         $prompt = $config['prompt'] ?? AiStyles::prompt($style, [Color::name($theme->primary), Color::name($theme->accent)]);
         [$w, $h] = self::dimensions($targetW / max(1, $targetH), $config['hires']);
 
@@ -62,13 +70,21 @@ final class AiBackground
 
     /**
      * Paint the AI image as the background, then add a scrim so text at the theme's text colour reads.
-     * The scrim strength is solved from the image's average brightness.
+     * The scrim strength is solved from the image's average brightness; $lighter caps it when a text panel
+     * already guarantees readability.
      */
-    public static function paint(Canvas $canvas, GdImage $image, Theme $theme): void
+    public static function paint(Canvas $canvas, GdImage $image, Theme $theme, bool $lighter = false): void
     {
         $w = $canvas->width();
         $h = $canvas->height();
-        $canvas->picture($image, 0, 0, $w, $h, 'cover');
+        $strip = $w / max(1, $h) >= 3.2;
+        $canvas->picture($image, 0, 0, $w, $h, 'cover', 0, [0.5, 0.55]);
+        if ($strip) {
+            // A 6:1 slice of a photo is too busy and soft to be sharp: blur it into a calm, tinted band.
+            for ($i = 0; $i < 3; $i++) {
+                imagefilter($canvas->image(), IMG_FILTER_GAUSSIAN_BLUR);
+            }
+        }
 
         $darkMode = Color::luminance($theme->text) > 0.5;
         $scrim = $darkMode ? $theme->scrim() : Color::lighten($theme->primary, 0.85);
@@ -77,8 +93,17 @@ final class AiBackground
         $target = $darkMode ? 0.16 : 0.8;
 
         $needed = abs($avg - $scrimL) < 0.02 ? 0.3 : ($avg - $target) / ($avg - $scrimL);
-        $opacity = max(0.3, min(0.78, $needed));
+        $opacity = $strip ? max(0.5, min(0.74, $needed)) : ($lighter ? max(0.15, min(0.4, $needed)) : max(0.3, min(0.78, $needed)));
         $canvas->rect(0, 0, $w, $h, $scrim, $opacity);
+
+        if ($strip) {
+            // Brand-coloured glow in the middle behind the headline, darker towards the product cards.
+            $canvas->glow((int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), Color::lighten($theme->primary, 0.1), 0.35);
+            $canvas->gradient($scrim, $scrim, 'horizontal', [0, 0, (int) ($w * 0.2), $h], 0.45, 0.0);
+            $canvas->gradient($scrim, $scrim, 'horizontal', [(int) ($w * 0.8), 0, $w - (int) ($w * 0.8), $h], 0.0, 0.45);
+
+            return;
+        }
 
         // Slight vignette to keep the edges calm.
         $black = [0, 0, 0];
@@ -115,7 +140,8 @@ final class AiBackground
 
     private static function cachePath(string $prompt, int $w, int $h, ?int $seed): string
     {
-        $dir = (function_exists('storage_path') ? @storage_path('framework/cache/laragdads-ai') : null)
+        $dir = self::$cacheDir
+            ?: (function_exists('storage_path') ? @storage_path('framework/cache/laragdads-ai') : null)
             ?: sys_get_temp_dir() . '/laragdads-ai';
 
         return $dir . '/' . sha1($prompt . '|' . $w . 'x' . $h . '|' . ($seed ?? 'any')) . '.png';

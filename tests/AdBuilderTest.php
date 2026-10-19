@@ -27,13 +27,19 @@ final class AdBuilderTest extends TestCase
     {
         $this->dir = sys_get_temp_dir() . '/laragdads-' . uniqid();
         mkdir($this->dir);
+        AiBackground::useCacheDir($this->dir . '/ai-cache');
         $this->font = dirname(__DIR__) . '/resources/fonts/DejaVuSans-Bold.ttf';
     }
 
     protected function tearDown(): void
     {
         AiBackground::useGenerator(null);
-        array_map('unlink', glob($this->dir . '/*') ?: []);
+        AiBackground::useCacheDir(null);
+        foreach (glob($this->dir . '/ai-cache/*') ?: [] as $f) {
+            @unlink($f);
+        }
+        @rmdir($this->dir . '/ai-cache');
+        array_map('unlink', array_filter(glob($this->dir . '/*') ?: [], 'is_file'));
         @rmdir($this->dir);
     }
 
@@ -368,7 +374,7 @@ final class AdBuilderTest extends TestCase
         });
 
         $ad = fn () => AdBuilder::make()->size(AdSize::LANDSCAPE)->headline('Hello world')->theme('#4c1d95')
-            ->aiBackground('watercolor', prompt: 'unit-test prompt ' . $this->dir);
+            ->aiBackground('watercolor', prompt: 'unit-test prompt ' . $this->dir)->textPanel(false);
         $img = $this->decode($ad()->toPng());
         $ad()->toPng();
 
@@ -411,5 +417,83 @@ final class AdBuilderTest extends TestCase
     {
         $this->assertSame(512, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(500));
         $this->assertSame(64, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(10));
+    }
+
+    public function test_education_scenes_follow_the_ad_topic(): void
+    {
+        $this->assertContains(AiStyles::forTopic('MHT-CET Physics: 28 years', 0), ['physics-concept', 'science-lab']);
+        $this->assertContains(AiStyles::forTopic('Chemistry notes', 1), ['chemistry-lab', 'science-lab']);
+        $this->assertContains(AiStyles::forTopic('SSC 54 QUESTION PAPERS', 2), ['exam-hall', 'classroom', 'study-desk']);
+        $this->assertContains(AiStyles::forTopic('something unrelated', 3), AiStyles::educationNames());
+        $this->assertContains(AiStyles::resolve('education', 0, 'Biology'), ['biology-lab', 'library']);
+        $this->assertContains(AiStyles::resolve('random', 4), AiStyles::educationNames());
+        $this->assertContains(AiStyles::resolve('abstract', 4), AiStyles::artNames());
+        $this->assertSame('watercolor', AiStyles::resolve('watercolor'));
+        $this->assertStringContainsString('no people', AiStyles::prompt('classroom', ['deep blue']));
+    }
+
+    public function test_builder_derives_the_scene_from_headline_and_hero_not_the_detail_list(): void
+    {
+        $seen = [];
+        AiBackground::useGenerator(function (string $prompt, int $w, int $h) use (&$seen) {
+            $seen[] = $prompt;
+
+            return $this->brightImage($w, $h, [60, 40, 90]);
+        });
+
+        AdBuilder::make()->size(AdSize::LANDSCAPE)->theme('#4c1d95')->hero('SSC 54', 'QUESTION PAPERS')
+            ->details(['Mathematics Part - I & II', 'Physics and Chemistry'])
+            ->aiBackground('education', seed: 0, topic: null)->toPng();
+
+        $this->assertMatchesRegularExpression('/exam|classroom|desk/', $seen[0]);
+        $this->assertDoesNotMatchRegularExpression('/geometry|compass|laboratory/', $seen[0]);
+    }
+
+    public function test_variants_change_the_arrangement_and_are_reproducible(): void
+    {
+        $book = $this->packshot();
+        $render = fn (int $v) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($book)
+            ->headline('MHT-CET Physics')->subheadline('Previous solved papers')->cta('Buy now')->variant($v)->toPng();
+
+        $this->assertSame($render(0), $render(0));
+        $this->assertNotSame($render(0), $render(1), 'product side differs');
+        $this->assertNotSame($render(0), $render(2), 'text alignment differs');
+
+        $portrait = fn (int $v) => AdBuilder::make()->size(AdSize::SQUARE)->layout('books')->images($book)
+            ->headline('MHT-CET Physics')->cta('Buy now')->variant($v)->toPng();
+        $this->assertNotSame($portrait(0), $portrait(1), 'product on top vs bottom');
+    }
+
+    public function test_text_panel_is_automatic_with_ai_backgrounds_and_can_be_turned_off(): void
+    {
+        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [90, 120, 80]));
+        $ad = fn (?bool $panel) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($this->packshot())
+            ->headline('Hello world')->cta('Go')->aiBackground('classroom', prompt: 'panel test ' . $this->dir)->textPanel($panel)->toPng();
+
+        $this->assertNotSame($ad(true), $ad(false));
+        $this->assertSame($ad(null), $ad(true), 'null means automatic: on with AI backgrounds');
+    }
+
+    public function test_strip_uses_the_whole_uncropped_cover_and_puts_the_button_beside_the_text(): void
+    {
+        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [60, 80, 120]));
+        $cover = $this->packshot();
+        $ad = fn (bool $cta) => AdBuilder::make()->size(AdSize::STRIP)->images($cover)->imageFit('contain')->cutout(false)
+            ->headline('SSC Board Exam Model Papers')->subheadline('Latest paper pattern 2025-26')
+            ->aiBackground('exam-hall', prompt: 'strip test ' . $this->dir);
+
+        $img = $this->decode($ad(true)->cta('Buy now')->toPng());
+        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
+
+        // The cover card sits at the left edge, the button (accent colour) at the right edge, text between.
+        $accent = Theme::fromImage($cover)->accent;
+        $hasAccentAtRight = false;
+        for ($x = 1000; $x < 1190 && !$hasAccentAtRight; $x += 3) {
+            for ($y = 60; $y < 140; $y += 3) {
+                $hasAccentAtRight = $hasAccentAtRight || Color::toHex($this->rgb($img, $x, $y)) === Color::toHex($accent);
+            }
+        }
+        $this->assertTrue($hasAccentAtRight, 'CTA pill on the right');
+        $this->assertNotSame($ad(true)->cta('Buy now')->toPng(), $ad(true)->cta(null)->toPng());
     }
 }

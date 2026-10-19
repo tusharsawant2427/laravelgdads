@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Ads with AI-generated backgrounds (AI Horde / Stable Horde), a different style for each:
+ * Ads with AI-generated educational backgrounds (AI Horde / Stable Horde), different scene and arrangement for each:
  *
  *   AIHORDE_API_KEY=your-key php examples/ai.php [output-dir]
  *
@@ -45,23 +45,26 @@ $physicsAd = fn () => AdBuilder::make()->images($physics)->book3d()
     ->features(['4100+ MCQs', 'Quick Review', 'Important Formulae'])
     ->cta('Buy now')->badge('4100+ MCQs');
 
+// Topic-aware scenes: the AI picks an educational backdrop from the ad's own wording (physics -> physics concept /
+// science lab, SSC board papers -> exam hall / classroom ...), and variant() changes the arrangement and alignment.
 $jobs = [
-    'ssc-promo-neon' => $sscPromo()->aiBackground('neon-cyber'),
-    'ssc-promo-chalkboard' => $sscPromo()->aiBackground('chalkboard-doodle'),
-    'ssc-promo-blueprint' => $sscPromo()->aiBackground('blueprint-science'),
-    'physics-landscape-fluid' => $physicsAd()->size(AdSize::LANDSCAPE)->layout('books')->aiBackground('fluid-gradient'),
-    'physics-square-galaxy' => $physicsAd()->size(AdSize::SQUARE)->layout('books')->aiBackground('space-galaxy'),
-    'physics-story-paper' => $physicsAd()->size(AdSize::STORY)->layout('books')->aiBackground('paper-cut'),
-    'physics-landscape-random' => $physicsAd()->size(AdSize::LANDSCAPE)->layout('books')->aiBackground('random'),
+    'ssc-promo' => $sscPromo()->aiBackground('education', seed: 0),
+    'ssc-promo-2' => $sscPromo()->aiBackground('education', seed: 1),
+    'physics-landscape-a' => $physicsAd()->size(AdSize::LANDSCAPE)->layout('books')->variant(0)->aiBackground('education', seed: 0),
+    'physics-landscape-b' => $physicsAd()->size(AdSize::LANDSCAPE)->layout('books')->variant(1)->aiBackground('education', seed: 1),
+    'physics-landscape-c' => $physicsAd()->size(AdSize::LANDSCAPE)->layout('books')->variant(2)->aiBackground('education', seed: 2),
+    'physics-square-top' => $physicsAd()->size(AdSize::SQUARE)->layout('books')->variant(0)->aiBackground('education', seed: 3),
+    'physics-square-bottom' => $physicsAd()->size(AdSize::SQUARE)->layout('books')->variant(1)->aiBackground('education', seed: 4),
+    'physics-story' => $physicsAd()->size(AdSize::STORY)->layout('books')->variant(2)->aiBackground('education', seed: 5),
 ];
 
 if (is_file($freeBold) && is_file($freeRegular)) {
-    $jobs['ssc-promo-neon']->font($freeBold, $freeRegular);
-    $jobs['ssc-promo-chalkboard']->font($freeBold, $freeRegular);
-    $jobs['ssc-promo-blueprint']->font($freeBold, $freeRegular);
+    foreach (['ssc-promo', 'ssc-promo-2'] as $name) {
+        $jobs[$name]->font($freeBold, $freeRegular);
+    }
 }
 
-echo 'Styles: ' . implode(', ', AiStyles::names()) . "\n";
+echo 'Education scenes: ' . implode(', ', AiStyles::educationNames()) . "\n";
 foreach ($jobs as $name => $job) {
     $t = microtime(true);
     $job->save("$out/ai-$name.png");

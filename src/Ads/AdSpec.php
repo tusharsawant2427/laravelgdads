@@ -33,7 +33,7 @@ final class AdSpec
     /** @var array{lines:string[],color:?array}|null round seal, e.g. INCLUDES / 2025 / BOARD QUESTION PAPERS */
     public ?array $seal = null;
 
-    /** @var array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool}|null AI Horde background request */
+    /** @var array{style:string,prompt:?string,key:?string,seed:?int,strict:bool,hires:bool,topic:?string}|null AI Horde background request */
     public ?array $ai = null;
 
     public GdImage|string|null $footerLogo = null;
@@ -48,7 +48,14 @@ final class AdSpec
 
     public string $layout = 'auto';
     public string $background = 'auto';
+    /** left | right (wide layouts), top | bottom (square / portrait / story) */
     public string $imageSide = 'left';
+
+    /** null = layout default; left | center | right */
+    public ?string $textAlign = null;
+
+    /** Soft panel behind the text for busy backgrounds. null = automatic (on with an AI background). */
+    public ?bool $textPanel = null;
     public string $imageFit = 'cover';
     public bool $shadows = true;
 

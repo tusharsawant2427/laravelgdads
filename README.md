@@ -12,8 +12,8 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 ![leaderboard](docs/examples/leaderboard.png)
 ![strip](docs/examples/strip-lines.png)
 ![promo](docs/examples/promo.png)
-![ai chalkboard](docs/examples/ai-ssc-promo-chalkboard.png)
-![ai fluid](docs/examples/ai-physics-landscape-fluid.png)
+![strip ssc](docs/examples/strip-ssc-0.png)
+![strip physics](docs/examples/strip-physics-1.png)
 
 The images above come from `php examples/generate.php`.
 
@@ -84,6 +84,14 @@ $ad->lastAiError();  // why it fell back to the built-in background (null when A
   seed, so re-rendering the same ad (or the same ad in other sizes) is instant. Run it in a queued job in production.
 - **Failure:** if the Horde is down, the queue is too long or the job is rejected, the ad falls back to the built-in
   background (one automatic retry first). Pass `strict: true` to throw instead.
+- **Education scenes (default):** `aiBackground()` picks a scene from the ad's headline and title: a physics concept or science lab
+  for Physics, an exam hall or classroom for board papers, a chemistry lab for Chemistry, a study desk for MCQ books, and so on
+  (`classroom`, `exam-hall`, `study-desk`, `library`, `science-lab`, `physics-concept`, `chemistry-lab`, `maths-geometry`,
+  `biology-lab`, `notebook-desk`, `graduation`, `books-stack`). `'abstract'` gives the old abstract art instead.
+- **Variety:** `->variant($n)` changes the product side (left/right, top/bottom), text alignment and panel; `->textAlign()`, `->imageSide()`
+  and `->textPanel()` set them directly. With a photographic background a frosted panel is put behind the text automatically.
+- **Strips (1200x200):** the scene is blurred and tinted into a calm band. Use the cover photo exactly as supplied, whole, with
+  `->imageFit('contain')->cutout(false)` (`php examples/strip.php`).
 - **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
 - Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.
 
