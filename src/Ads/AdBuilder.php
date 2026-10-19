@@ -219,6 +219,7 @@ final class AdBuilder
             throw new InvalidArgumentException('An ad needs at least a headline or an image.');
         }
 
+        $spec = $this->splitTitle(clone $spec);
         $theme = $spec->theme ?? $this->resolveTheme();
         $heading = new Typography($spec->fontPath);
         $body = $spec->bodyFontPath ? new Typography($spec->bodyFontPath) : $heading;
@@ -320,9 +321,25 @@ final class AdBuilder
 
     private function resolveTheme(): Theme
     {
-        $source = $this->spec->themeSource ?? ($this->spec->images[0] ?? ($this->spec->logo ?? null));
+        if ($this->spec->themeSource !== null) {
+            return Theme::fromImage($this->spec->themeSource);
+        }
+        $sources = array_slice($this->spec->images, 0, 2) ?: array_filter([$this->spec->logo]);
 
-        return $source !== null ? Theme::fromImage($source) : Theme::fromColors(Theme::FALLBACK);
+        return $sources !== [] ? Theme::fromImages($sources) : Theme::fromColors(Theme::FALLBACK);
+    }
+
+    /** "Book title | tagline" in one string becomes headline + subheadline when no subheadline is set. */
+    private function splitTitle(AdSpec $spec): AdSpec
+    {
+        if ($spec->subheadline === null && $spec->headline !== null && str_contains($spec->headline, '|')) {
+            [$head, $sub] = array_map('trim', explode('|', $spec->headline, 2));
+            if ($head !== '' && $sub !== '') {
+                [$spec->headline, $spec->subheadline] = [$head, $sub];
+            }
+        }
+
+        return $spec;
     }
 
     private function specWithTheme(Theme $theme): AdSpec

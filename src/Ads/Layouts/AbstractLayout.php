@@ -2,6 +2,7 @@
 
 namespace Packitifotech\Laragdads\Ads\Layouts;
 
+use GdImage;
 use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Color;
@@ -217,6 +218,15 @@ abstract class AbstractLayout implements Layout
             $canvas->rect($x - $pad, $y - $pad, $w + 2 * $pad, $h + 2 * $pad, [255, 255, 255], 0.92, (int) round(($h + 2 * $pad) * 0.3));
         }
         $canvas->picture($spec->logo, $x, $y, $w, $h, 'contain');
+    }
+
+    /** Strip the white packshot background (unless disabled or the image already has transparency). */
+    protected function prepare(GdImage|string $image, AdSpec $spec): GdImage
+    {
+        $img = ImageLoader::load($image);
+        $wanted = $spec->cutout ?? Cutout::hasLightBackground($img);
+
+        return $wanted ? Cutout::apply($img) : $img;
     }
 
     /** A studio shot on a flat white background reads best on a white card. */

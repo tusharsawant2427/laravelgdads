@@ -2,11 +2,8 @@
 
 namespace Packitifotech\Laragdads\Ads\Layouts;
 
-use GdImage;
 use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
-use Packitifotech\Laragdads\Ads\Support\Cutout;
-use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Theme;
 
@@ -86,14 +83,5 @@ final class BooksLayout extends AbstractLayout
         $boxH = (int) round($h * 0.88);
         $canvas->sprite($back, $x + (int) round($w * 0.34), $cy - (int) round($h * 0.03), $boxW, $boxH, 5);
         $canvas->sprite($front, $x + (int) round($w * 0.64), $cy + (int) round($h * 0.03), $boxW, (int) round($h * 0.94), -3);
-    }
-
-    /** Strip the white packshot background (unless disabled or the image already has transparency). */
-    private function prepare(GdImage|string $image, AdSpec $spec): GdImage
-    {
-        $img = ImageLoader::load($image);
-        $wanted = $spec->cutout ?? Cutout::hasLightBackground($img);
-
-        return $wanted ? Cutout::apply($img) : $img;
     }
 }

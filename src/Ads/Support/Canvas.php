@@ -191,6 +191,32 @@ final class Canvas
         return $this;
     }
 
+    /**
+     * Draw anti-aliased decoration: $draw receives a transparent layer at $scale times the canvas size
+     * (so 1px strokes stay smooth after downsampling) and the scale factor.
+     *
+     * @param callable(GdImage, int): void $draw
+     */
+    public function decor(callable $draw, int $scale = 2): self
+    {
+        $w = $this->width();
+        $h = $this->height();
+        $big = $this->layer($w * $scale, $h * $scale);
+        $draw($big, $scale);
+
+        $small = $this->layer($w, $h);
+        imagealphablending($small, false);
+        imagecopyresampled($small, $big, 0, 0, 0, 0, $w, $h, $w * $scale, $h * $scale);
+        $this->compose($small, 0, 0);
+
+        return $this;
+    }
+
+    public function colorOn(GdImage $layer, array $color, float $opacity): int
+    {
+        return $this->alloc($layer, $color, $opacity);
+    }
+
     // ---------------------------------------------------------------- images
 
     /**

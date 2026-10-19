@@ -10,6 +10,7 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 
 ![billboard](docs/examples/billboard.png)
 ![leaderboard](docs/examples/leaderboard.png)
+![strip](docs/examples/strip-lines.png)
 
 The images above come from `php examples/generate.php`.
 
@@ -22,7 +23,7 @@ The images above come from `php examples/generate.php`.
 - **Packshot cut-out**: a flat white studio background is removed, white areas inside the product are kept, and the baked-in drop shadow turns into a real soft shadow.
 - **Auto-fitting text**: headline, sub-headline and tick-list shrink and wrap to fit any size; text that cannot fit is ellipsised.
 - **Elements**: CTA button, round badge (`-30%`, `NEW`), logo, tick-list of selling points.
-- **Backgrounds**: `auto`/`mesh`, `gradient`, `solid`, `blur`, plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
+- **Backgrounds drawn from the covers**: `auto`/`mesh`, `lines`, `bokeh`, `hex`, `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
 
 ## Requirements
@@ -64,6 +65,16 @@ $files = Laragdads::ad()
 foreach ($files as $label => $binary) {                    // "1080x1080" => PNG bytes
     Storage::put("ads/{$label}.png", $binary);
 }
+```
+
+A long `"Title | tagline"` headline is split automatically into a headline and a subheadline.
+
+Front cover left, back cover right on a background built from the covers (the classic wide strip):
+
+```php
+Laragdads::ad()->size(AdSize::STRIP)->images($front, $back)->background('lines')
+    ->headline('JEE Main Mathematics Absolute Vol 2 Notes with MCQs | As per latest syllabus issued by NTA')
+    ->save(storage_path('app/ads/strip.png'));
 ```
 
 ### Builder reference
