@@ -133,6 +133,14 @@ final class Theme
         return new self($primary, $secondary, $accent, $from, $to, $text);
     }
 
+    /** A saturated, light version of the accent: reads as "gold" on dark backgrounds. */
+    public function gold(): array
+    {
+        [$h, $s, $l] = Color::toHsl($this->accent);
+
+        return Color::fromHsl($h, max($s, 0.85), max(0.58, min($l, 0.68)));
+    }
+
     public function ctaText(): array
     {
         return Color::textOn($this->accent);

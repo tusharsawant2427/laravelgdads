@@ -38,6 +38,7 @@ final class Backgrounds
         match ($style) {
             'auto', 'studio' => self::studio($canvas, $theme),
             'waves' => self::waves($canvas, $theme),
+            'arcs' => self::arcs($canvas, $theme),
             'mesh' => self::mesh($canvas, $theme),
             'lines' => self::lines($canvas, $theme),
             'bokeh' => self::bokeh($canvas, $theme),
@@ -53,7 +54,7 @@ final class Backgrounds
     public static function names(): array
     {
         return array_values(array_unique(array_merge(
-            ['auto', 'studio', 'waves', 'mesh', 'lines', 'bokeh', 'hex', 'gradient', 'solid', 'blur'],
+            ['auto', 'studio', 'arcs', 'waves', 'mesh', 'lines', 'bokeh', 'hex', 'gradient', 'solid', 'blur'],
             array_keys(self::legacyMap()),
             array_keys(self::$custom)
         )));
@@ -137,6 +138,45 @@ final class Backgrounds
         }
 
         self::vignette($canvas);
+    }
+
+    /**
+     * Deep brand-coloured backdrop with a large pale glow on the left (where the product sits), sweeping
+     * accent/teal arcs and a few ring accents: the look of a premium website hero banner.
+     */
+    private static function arcs(Canvas $canvas, Theme $theme): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $deep = Color::darken($theme->backgroundFrom, 0.35);
+        $mid = Color::darken($theme->backgroundTo, 0.2);
+        $gold = $theme->gold();
+        $teal = Color::mix(Color::lighten($theme->primary, 0.35), [40, 200, 190], 0.5);
+
+        $canvas->gradient($deep, $mid, 'horizontal');
+        $canvas->glow((int) ($w * 0.62), (int) ($h * 0.35), (int) ($h * 1.25), Color::lighten($theme->primary, 0.2), 0.22);
+
+        // Big pale disc behind the product, fading out to the right.
+        $canvas->glow((int) ($w * 0.14), (int) ($h * 0.42), (int) ($h * 1.0), [255, 255, 255], 0.9);
+        $canvas->glow((int) ($w * 0.04), (int) ($h * 0.1), (int) ($h * 0.7), Color::lighten($theme->primary, 0.7), 0.6);
+
+        $canvas->decor(function ($layer, int $k) use ($w, $h, $gold, $teal, $canvas) {
+            imagesetthickness($layer, max(2, (int) round($h * 0.006 * $k)));
+            $arc = fn (float $cx, float $cy, float $d, int $from, int $to, array $c, float $a) => imagearc(
+                $layer, (int) ($w * $cx * $k), (int) ($h * $cy * $k), (int) ($h * $d * $k), (int) ($h * $d * $k), $from, $to, $canvas->colorOn($layer, $c, $a)
+            );
+            $arc(0.11, 0.68, 1.15, 200, 340, $gold, 0.6);
+            $arc(0.10, 0.74, 1.3, 205, 335, $teal, 0.5);
+            $arc(0.20, 1.02, 1.05, 235, 325, $gold, 0.35);
+            imagesetthickness($layer, max(1, $k));
+            $ring = $canvas->colorOn($layer, [255, 255, 255], 0.35);
+            imageellipse($layer, (int) ($w * 0.31 * $k), (int) ($h * 0.07 * $k), (int) ($h * 0.05 * $k), (int) ($h * 0.05 * $k), $ring);
+            imageellipse($layer, (int) ($w * 0.04 * $k), (int) ($h * 0.72 * $k), (int) ($h * 0.035 * $k), (int) ($h * 0.035 * $k), $ring);
+            imageellipse($layer, (int) ($w * 0.055 * $k), (int) ($h * 0.76 * $k), (int) ($h * 0.035 * $k), (int) ($h * 0.035 * $k), $ring);
+        });
+
+        $black = [0, 0, 0];
+        $canvas->gradient($black, $black, 'vertical', [0, (int) ($h * 0.75), $w, $h - (int) ($h * 0.75)], 0.0, 0.25);
     }
 
     /** Flowing translucent wave bands across the lower part of the canvas. */

@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Packitifotech\Laragdads\Ads\Layouts\BooksLayout;
 use Packitifotech\Laragdads\Ads\Layouts\HeroLayout;
 use Packitifotech\Laragdads\Ads\Layouts\Layout;
+use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
 use Packitifotech\Laragdads\Ads\Layouts\ShowcaseLayout;
 use Packitifotech\Laragdads\Ads\Layouts\SplitLayout;
 use Packitifotech\Laragdads\Ads\Layouts\StackedLayout;
@@ -27,6 +28,7 @@ final class AdBuilder
 {
     /** @var array<string, Layout|class-string<Layout>> */
     private static array $layouts = [
+        'promo' => PromoLayout::class,
         'books' => BooksLayout::class,
         'split' => SplitLayout::class,
         'stacked' => StackedLayout::class,
@@ -134,6 +136,69 @@ final class AdBuilder
         return $this;
     }
 
+    /**
+     * Stacked title, each line sized to fill the title column (promo layout): first line in the accent
+     * colour, second white, third a light tint. e.g. hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions').
+     */
+    public function hero(string ...$lines): self
+    {
+        $this->spec->hero = array_slice(array_values($lines), 0, 3);
+
+        return $this;
+    }
+
+    /**
+     * Info column (promo layout). Plain strings or [string, sizeScale]; **bold** words use the accent
+     * colour; '---' draws a divider.
+     *
+     * @param array<int, string|array{0:string,1:float}> $lines
+     */
+    public function details(array $lines): self
+    {
+        $this->spec->details = array_values($lines);
+
+        return $this;
+    }
+
+    /** Plaque such as ->tag('Std. X', 'ENGLISH MEDIUM'). */
+    public function tag(?string $title, ?string $subtitle = null): self
+    {
+        $this->spec->tag = $title === null ? null : [$title, (string) $subtitle];
+
+        return $this;
+    }
+
+    /** Round seal on the product, e.g. ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS']). */
+    public function seal(?array $lines, array|string|null $color = null): self
+    {
+        $this->spec->seal = $lines === null ? null : ['lines' => array_values($lines), 'color' => $color === null ? null : Support\Color::normalize($color)];
+
+        return $this;
+    }
+
+    public function footerLogo(GdImage|string|null $logo): self
+    {
+        $this->spec->footerLogo = $logo;
+
+        return $this;
+    }
+
+    /** 'solid' (default pill) or 'arrow' (light pill with a round arrow button). */
+    public function ctaStyle(string $style): self
+    {
+        $this->spec->ctaStyle = $style === 'arrow' ? 'arrow' : 'solid';
+
+        return $this;
+    }
+
+    /** Render the first cover as a 3D book (spine, page block, gloss) in the books/promo layouts. */
+    public function book3d(bool $enabled = true): self
+    {
+        $this->spec->book3d = $enabled;
+
+        return $this;
+    }
+
     /** Heading font; $bodyFont (optional) is used for the subheadline. */
     public function font(string $fontPath, ?string $bodyFont = null): self
     {
@@ -215,21 +280,26 @@ final class AdBuilder
     public function render(): GdImage
     {
         $spec = $this->spec;
-        if ($spec->headline === null && !$spec->hasImages()) {
+        if ($spec->headline === null && !$spec->hasImages() && $spec->hero === []) {
             throw new InvalidArgumentException('An ad needs at least a headline or an image.');
         }
 
         $spec = $this->splitTitle(clone $spec);
         $theme = $spec->theme ?? $this->resolveTheme();
         $heading = new Typography($spec->fontPath);
-        $body = $spec->bodyFontPath ? new Typography($spec->bodyFontPath) : $heading;
+        $bodyPath = $spec->bodyFontPath;
+        if ($bodyPath === null && realpath($spec->fontPath) === realpath(self::bundledFont('Bold'))) {
+            $bodyPath = self::bundledFont('');   // bold headlines over regular-weight body copy
+        }
+        $body = $bodyPath && $bodyPath !== $spec->fontPath ? new Typography($bodyPath) : $heading;
 
         $canvas = Canvas::create($spec->width, $spec->height, $theme->backgroundFrom);
         $layout = $this->resolveLayout();
 
         // Full-bleed hero layouts paint their own backdrop; everything else sits on the background.
         if (!($layout instanceof HeroLayout && $spec->hasImages())) {
-            Backgrounds::paint($spec->background, $canvas, $this->specWithTheme($theme), $theme);
+            $style = $spec->background === 'auto' && $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 ? 'arcs' : $spec->background;
+            Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
         }
         $layout->render($canvas, $spec, $theme, $heading, $body);
 
@@ -353,6 +423,9 @@ final class AdBuilder
     private function resolveLayout(): Layout
     {
         $name = $this->spec->layout;
+        if ($name === 'auto' && $this->spec->hero !== []) {
+            $name = 'promo';
+        }
         if ($name === 'auto') {
             $ratio = $this->spec->aspectRatio();
             $name = match (true) {
@@ -400,9 +473,13 @@ final class AdBuilder
     {
         $configured = self::config('default_font');
 
-        return is_string($configured) && $configured !== ''
-            ? $configured
-            : dirname(__DIR__, 2) . '/resources/fonts/DejaVuSans-Bold.ttf';
+        return is_string($configured) && $configured !== '' ? $configured : self::bundledFont('Bold');
+    }
+
+    /** Bundled DejaVu Sans: '' for regular, 'Bold' for bold. */
+    private static function bundledFont(string $weight): string
+    {
+        return dirname(__DIR__, 2) . '/resources/fonts/DejaVuSans' . ($weight !== '' ? '-' . $weight : '') . '.ttf';
     }
 
     /** Laravel config when a container is booted, otherwise the supplied default. */

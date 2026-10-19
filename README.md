@@ -11,6 +11,7 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 ![billboard](docs/examples/billboard.png)
 ![leaderboard](docs/examples/leaderboard.png)
 ![strip](docs/examples/strip-lines.png)
+![promo](docs/examples/promo.png)
 
 The images above come from `php examples/generate.php`.
 
@@ -25,6 +26,36 @@ The images above come from `php examples/generate.php`.
 - **Elements**: CTA button, round badge (`-30%`, `NEW`), logo, tick-list of selling points.
 - **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `waves`, `mesh` (simple), `lines`, `bokeh`, `hex`, `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
+
+## Promo banner (website hero style)
+
+A three-column layout: tilted 3D book with a seal, a big stacked title that fills its column, and an info
+column with a plaque and an arrow button. Built from one catalogue photo (`php examples/promo.php`).
+
+```php
+use Packitifotech\Laragdads\Ads\Support\ImageLoader;
+
+$cover = ImageLoader::crop($path, top: 132, left: 42, right: 52);   // drop a marketing banner / white margins
+
+Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
+    ->images($cover)->cutout(false)->book3d()
+    ->logo($brandLogo)->footerLogo($publisherLogo)
+    ->hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions')   // gold / white / light-blue
+    ->details([
+        ['Model Papers for **SSC Board Exam**', 1.35],        // **bold** = accent colour, 1.35 = size scale
+        '---',                                                  // divider
+        'History and Political Science  |  Geography',
+        '• Get the real exam experience  • Detailed insights',
+    ])
+    ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS'])
+    ->tag('Std. X', 'ENGLISH MEDIUM')
+    ->cta("Ace your exam with SSC Exam Topper's Answer Sheet")->ctaStyle('arrow')
+    ->font($boldFontWithDevanagari, $regularFont)              // Hindi/Marathi need a font that has the glyphs
+    ->save('ads/ssc-promo.png');
+```
+
+Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
+Everything is drawn with GD: there is no AI image generation and no network call.
 
 ## Requirements
 

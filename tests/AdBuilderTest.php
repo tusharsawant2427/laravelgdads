@@ -10,6 +10,8 @@ use Packitifotech\Laragdads\Ads\Backgrounds;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
+use Packitifotech\Laragdads\Ads\Support\ImageLoader;
+use Packitifotech\Laragdads\Ads\Support\RichText;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Theme;
 use PHPUnit\Framework\TestCase;
@@ -282,5 +284,56 @@ final class AdBuilderTest extends TestCase
 
         $theme = Theme::fromImages([$front, $this->dir . '/back.png']);
         $this->assertLessThan(40, Color::hueDistance($theme->primary, [140, 30, 150]));
+    }
+
+    public function test_promo_layout_renders_wide_and_falls_back_on_narrow_sizes(): void
+    {
+        $book = $this->packshot();
+        $ad = fn (AdSize $size) => AdBuilder::make()->size($size)->images($book)->cutout(false)->book3d()
+            ->hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions')
+            ->details([['Model Papers for **SSC Board Exam**', 1.3], '---', 'History | Geography', '• Mock tests  • Solutions'])
+            ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS'])->tag('Std. X', 'ENGLISH MEDIUM')
+            ->cta('Ace your exam')->ctaStyle('arrow')->toPng();
+
+        foreach ([AdSize::WEBSITE_BANNER, AdSize::SQUARE, AdSize::STORY, AdSize::LEADERBOARD] as $size) {
+            $img = $this->decode($ad($size));
+            $this->assertSame([$size->width(), $size->height()], [imagesx($img), imagesy($img)], $size->value);
+        }
+    }
+
+    public function test_rich_text_wraps_and_marks_bold_words(): void
+    {
+        $rich = new RichText(new Typography($this->font), new Typography($this->font));
+        $lines = $rich->wrap('Model Papers for **SSC Board Exam** today', 22, 260);
+
+        $this->assertGreaterThan(1, count($lines));
+        $bold = array_filter(array_merge(...$lines), fn ($w) => $w[1]);
+        $this->assertSame(['SSC', 'Board', 'Exam'], array_values(array_map(fn ($w) => $w[0], $bold)));
+        foreach ($lines as $line) {
+            $this->assertLessThanOrEqual(260, $rich->width($line, 22));
+        }
+    }
+
+    public function test_crop_removes_edges_and_rejects_empty_results(): void
+    {
+        $cropped = ImageLoader::crop($this->packshot(), top: 10, left: 20, right: 30, bottom: 40);
+        $this->assertSame([150, 230], [imagesx($cropped), imagesy($cropped)]);
+
+        $this->expectException(InvalidArgumentException::class);
+        ImageLoader::crop($this->packshot(), top: 280);
+    }
+
+    public function test_product_running_off_the_image_edge_is_not_cut_out(): void
+    {
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(30, 20, 140, 260, [30, 90, 160]);           // runs off the bottom edge
+        $this->assertFalse(Cutout::hasLightBackground($c->image()));
+    }
+
+    public function test_book_mockup_adds_spine_and_pages(): void
+    {
+        $book = \Packitifotech\Laragdads\Ads\Support\BookMockup::make($this->packshot());
+        $this->assertGreaterThan(200, imagesx($book));
+        $this->assertGreaterThan(280, imagesy($book));
     }
 }

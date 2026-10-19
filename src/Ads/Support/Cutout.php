@@ -19,33 +19,37 @@ final class Cutout
 {
     private const MAX_SIDE = 1400;
 
-    /** Does the image have an opaque, near-white border (i.e. a studio packshot background)? */
-    public static function hasLightBackground(GdImage $image, int $threshold = 238): bool
+    /**
+     * Does the product float on a white studio background? Every edge must be (almost) entirely near-white:
+     * a book that runs off the image edge, or a photo, fails and is used as-is instead of being cut out.
+     */
+    public static function hasLightBackground(GdImage $image, int $threshold = 238, float $edgeShare = 0.997): bool
     {
         $w = imagesx($image);
         $h = imagesy($image);
-        $hits = 0;
-        $total = 0;
-
-        $sample = function (int $x, int $y) use ($image, &$hits, &$total, $threshold) {
+        $white = static function (int $x, int $y) use ($image, $threshold): bool {
             $c = imagecolorat($image, $x, $y);
-            $total++;
-            if ((($c >> 24) & 0x7F) < 8 && min(($c >> 16) & 0xFF, ($c >> 8) & 0xFF, $c & 0xFF) >= $threshold) {
-                $hits++;
-            }
+
+            return (($c >> 24) & 0x7F) < 8 && min(($c >> 16) & 0xFF, ($c >> 8) & 0xFF, $c & 0xFF) >= $threshold;
         };
 
-        $step = max(1, intdiv(max($w, $h), 200));
-        for ($x = 0; $x < $w; $x += $step) {
-            $sample($x, 0);
-            $sample($x, $h - 1);
-        }
-        for ($y = 0; $y < $h; $y += $step) {
-            $sample(0, $y);
-            $sample($w - 1, $y);
+        $edges = [
+            [fn ($i) => [$i, 0], $w],
+            [fn ($i) => [$i, $h - 1], $w],
+            [fn ($i) => [0, $i], $h],
+            [fn ($i) => [$w - 1, $i], $h],
+        ];
+        foreach ($edges as [$at, $len]) {
+            $hits = 0;
+            for ($i = 0; $i < $len; $i++) {
+                $hits += $white(...$at($i)) ? 1 : 0;
+            }
+            if ($hits / $len < $edgeShare) {
+                return false;
+            }
         }
 
-        return $total > 0 && $hits / $total >= 0.9;
+        return true;
     }
 
     /** @var \WeakMap<GdImage, GdImage>|null */
@@ -79,14 +83,27 @@ final class Cutout
                 $queue->enqueue($i);
             }
         };
-        for ($x = 0; $x < $w; $x++) {
-            $seed($x, 0);
-            $seed($x, $h - 1);
-        }
-        for ($y = 0; $y < $h; $y++) {
-            $seed(0, $y);
-            $seed($w - 1, $y);
-        }
+        // Seed only from white runs that reach an image corner. A product cropped by the image edge
+        // (a book running off the bottom) keeps its own white areas: they are separated from the corners
+        // by the product's edge.
+        $run = function (int $fromX, int $fromY, int $dx, int $dy, int $len) use ($seed, $img, $isWhite) {
+            for ($i = 0; $i < $len; $i++) {
+                $x = $fromX + $dx * $i;
+                $y = $fromY + $dy * $i;
+                if (!$isWhite(imagecolorat($img, $x, $y))) {
+                    break;
+                }
+                $seed($x, $y);
+            }
+        };
+        $run(0, 0, 1, 0, $w);
+        $run($w - 1, 0, -1, 0, $w);
+        $run(0, $h - 1, 1, 0, $w);
+        $run($w - 1, $h - 1, -1, 0, $w);
+        $run(0, 0, 0, 1, $h);
+        $run($w - 1, 0, 0, 1, $h);
+        $run(0, $h - 1, 0, -1, $h);
+        $run($w - 1, $h - 1, 0, -1, $h);
         self::flood($state, $queue, $img, $w, $h, static fn ($c) => $isWhite($c), 1);
 
         // Pass 2: low-chroma greys touching the background -> translucent black shadow.

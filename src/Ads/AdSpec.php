@@ -21,6 +21,22 @@ final class AdSpec
     public ?string $cta = null;
     public ?string $badge = null;
 
+    /** @var string[] up to 3 stacked title lines, each sized to fill the title column (promo layout) */
+    public array $hero = [];
+
+    /** @var array<int, string|array{0:string,1:float}> info lines for the promo layout; '---' is a divider */
+    public array $details = [];
+
+    /** @var array{0:string,1:string}|null plaque such as ['Std. X', 'ENGLISH MEDIUM'] */
+    public ?array $tag = null;
+
+    /** @var array{lines:string[],color:?array}|null round seal, e.g. INCLUDES / 2025 / BOARD QUESTION PAPERS */
+    public ?array $seal = null;
+
+    public GdImage|string|null $footerLogo = null;
+    public string $ctaStyle = 'solid';
+    public bool $book3d = false;
+
     /** @var string[] short selling points, rendered as a tick list when there is room */
     public array $features = [];
 
