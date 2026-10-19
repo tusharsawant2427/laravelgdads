@@ -11,7 +11,7 @@ use Packitifotech\Laragdads\Services\Image\ImageService;
 /**
  * Background painters. A painter is `fn (Canvas $canvas, AdSpec $spec, Theme $theme): void`.
  *
- * Built-in modern styles, all coloured from the cover/brand: auto (mesh), mesh, lines, bokeh, hex, gradient,
+ * Built-in modern styles, all coloured from the cover/brand: auto (= studio, the richest), studio, waves, mesh, lines, bokeh, hex, gradient,
  * solid, blur.
  * Legacy styles (wave1, wave, abstract, stripes, radial, spotlight, burst, marketing, medical,
  * mobile-dots, mobile-card, mobile-diagonal, mobile-flat) are the original ImageService painters.
@@ -36,7 +36,9 @@ final class Backgrounds
         }
 
         match ($style) {
-            'auto', 'mesh' => self::mesh($canvas, $theme),
+            'auto', 'studio' => self::studio($canvas, $theme),
+            'waves' => self::waves($canvas, $theme),
+            'mesh' => self::mesh($canvas, $theme),
             'lines' => self::lines($canvas, $theme),
             'bokeh' => self::bokeh($canvas, $theme),
             'hex' => self::hex($canvas, $theme),
@@ -51,7 +53,7 @@ final class Backgrounds
     public static function names(): array
     {
         return array_values(array_unique(array_merge(
-            ['auto', 'mesh', 'lines', 'bokeh', 'hex', 'gradient', 'solid', 'blur'],
+            ['auto', 'studio', 'waves', 'mesh', 'lines', 'bokeh', 'hex', 'gradient', 'solid', 'blur'],
             array_keys(self::legacyMap()),
             array_keys(self::$custom)
         )));
@@ -68,6 +70,117 @@ final class Backgrounds
         $canvas->glow((int) ($w * 0.12), (int) ($h * 0.1), (int) ($long * 0.55), Color::lighten($theme->primary, 0.25), 0.55);
         $canvas->glow((int) ($w * 0.92), (int) ($h * 0.95), (int) ($long * 0.6), $theme->accent, 0.28);
         $canvas->glow((int) ($w * 0.62), (int) ($h * 0.2), (int) ($long * 0.35), Color::lighten($theme->secondary, 0.3), 0.3);
+    }
+
+    /**
+     * The default: a layered, "designed" backdrop. Brand gradient, soft light beams, flowing waves, rings,
+     * a dot grid, bokeh and a vignette. Every element is a translucent tint of the brand colours, so
+     * text contrast stays safe, and it is deterministic for a given size.
+     */
+    private static function studio(Canvas $canvas, Theme $theme): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $long = max($w, $h);
+        $rand = self::rng($w * 13 + $h * 7);
+        $tint = Color::lighten($theme->primary, 0.6);
+        $tint2 = Color::lighten($theme->secondary, 0.5);
+
+        self::mesh($canvas, $theme);
+        // Extra warmth: an accent-coloured bloom low on the canvas and a bright one top-left.
+        $canvas->glow((int) ($w * 0.7), (int) ($h * 1.0), (int) ($long * 0.5), $theme->accent, 0.22);
+        $canvas->glow((int) ($w * 0.25), (int) ($h * 0.2), (int) ($long * 0.4), Color::lighten($theme->primary, 0.5), 0.3);
+
+        // Soft diagonal light beams from the top-left.
+        $canvas->decor(function ($layer, int $k) use ($w, $h, $canvas) {
+            $white = [255, 255, 255];
+            foreach ([[0.02, 0.22, 0.07], [0.30, 0.50, 0.05], [0.62, 0.74, 0.04]] as [$a, $b, $alpha]) {
+                imagefilledpolygon($layer, [
+                    (int) ($w * $a * $k), 0,
+                    (int) ($w * $b * $k), 0,
+                    (int) (($w * $b + $h * 0.9) * $k), $h * $k,
+                    (int) (($w * $a + $h * 0.9) * $k), $h * $k,
+                ], $canvas->colorOn($layer, $white, $alpha));
+            }
+        });
+
+        // Large outlined rings at the corners.
+        $canvas->decor(function ($layer, int $k) use ($w, $h, $long, $tint, $canvas) {
+            imagesetthickness($layer, max(2, (int) round($long * 0.004 * $k)));
+            $ring = $canvas->colorOn($layer, $tint, 0.16);
+            foreach ([[0.96, 0.08, 0.34], [0.05, 0.98, 0.42], [0.96, 0.08, 0.5]] as [$x, $y, $d]) {
+                imageellipse($layer, (int) ($w * $x * $k), (int) ($h * $y * $k), (int) ($long * $d * $k), (int) ($long * $d * $k), $ring);
+            }
+        });
+
+        self::drawWaves($canvas, $theme, $rand, 3);
+
+        // Dot grid patch.
+        $gap = max(10, (int) round($long / 60));
+        $canvas->decor(function ($layer, int $k) use ($w, $h, $gap, $tint, $canvas) {
+            $dot = $canvas->colorOn($layer, $tint, 0.3);
+            $x0 = (int) ($w * 0.66);
+            $cols = 9;
+            $rows = max(3, (int) min(7, $h / $gap / 3));
+            for ($r = 0; $r < $rows; $r++) {
+                for ($c = 0; $c < $cols; $c++) {
+                    imagefilledellipse($layer, ($x0 + $c * $gap) * $k, (int) ($h * 0.06 + $r * $gap) * $k, 2 * $k, 2 * $k, $dot);
+                }
+            }
+        });
+
+        // A little bokeh.
+        $palette = [$tint, $theme->accent, $tint2, [255, 255, 255]];
+        for ($i = 0, $n = 7 + (int) round($long / 200); $i < $n; $i++) {
+            $d = (int) round((0.03 + $rand() * 0.1) * $long);
+            $canvas->circle((int) ($rand() * $w), (int) ($rand() * $h), max(8, $d), $palette[$i % 4], 0.06 + $rand() * 0.1);
+        }
+
+        self::vignette($canvas);
+    }
+
+    /** Flowing translucent wave bands across the lower part of the canvas. */
+    private static function waves(Canvas $canvas, Theme $theme): void
+    {
+        self::mesh($canvas, $theme);
+        self::drawWaves($canvas, $theme, self::rng($canvas->width() * 5 + $canvas->height()), 4);
+        self::vignette($canvas);
+    }
+
+    private static function drawWaves(Canvas $canvas, Theme $theme, \Closure $rand, int $bands): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $tints = [Color::lighten($theme->primary, 0.5), $theme->accent, Color::lighten($theme->secondary, 0.45)];
+
+        $canvas->decor(function ($layer, int $k) use ($w, $h, $rand, $bands, $tints, $canvas) {
+            for ($b = 0; $b < $bands; $b++) {
+                $base = $h * (0.62 + $b * 0.11);
+                $amp = $h * (0.05 + $rand() * 0.05);
+                $freq = (0.8 + $rand() * 1.4) * M_PI * 2 / $w;
+                $phase = $rand() * M_PI * 2;
+                $pts = [0, $h * $k];
+                for ($x = 0; $x <= $w; $x += max(4, intdiv($w, 120))) {
+                    $pts[] = $x * $k;
+                    $pts[] = (int) (($base + sin($x * $freq + $phase) * $amp) * $k);
+                }
+                $pts[] = $w * $k;
+                $pts[] = $h * $k;
+                imagefilledpolygon($layer, $pts, $canvas->colorOn($layer, $tints[$b % 3], 0.13 + $b * 0.035));
+            }
+        });
+    }
+
+    /** Darken the edges slightly so the eye settles on the centre. */
+    private static function vignette(Canvas $canvas): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $black = [0, 0, 0];
+        $canvas->gradient($black, $black, 'vertical', [0, 0, $w, (int) ($h * 0.3)], 0.22, 0.0);
+        $canvas->gradient($black, $black, 'vertical', [0, (int) ($h * 0.7), $w, $h - (int) ($h * 0.7)], 0.0, 0.28);
+        $canvas->gradient($black, $black, 'horizontal', [0, 0, (int) ($w * 0.12), $h], 0.16, 0.0);
+        $canvas->gradient($black, $black, 'horizontal', [(int) ($w * 0.88), 0, $w - (int) ($w * 0.88), $h], 0.0, 0.16);
     }
 
     /** Long, thin crossing lines in a lighter tone of the brand colour (the classic "ad strip" look). */
