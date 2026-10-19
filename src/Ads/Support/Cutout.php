@@ -122,13 +122,34 @@ final class Cutout
         }
         self::flood($state, $queue, $img, $w, $h, $isShadow, 2);
 
+        // Trim the one-pixel light fringe left where the product's anti-aliased edge met the white backdrop.
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                if ($state[$y * $w + $x] !== null && $state[$y * $w + $x] !== 0) {
+                    continue;
+                }
+                $touchesBackdrop = ($x > 0 && $state[$y * $w + $x - 1] === 1) || ($x < $w - 1 && $state[$y * $w + $x + 1] === 1)
+                    || ($y > 0 && $state[($y - 1) * $w + $x] === 1) || ($y < $h - 1 && $state[($y + 1) * $w + $x] === 1);
+                if (!$touchesBackdrop) {
+                    continue;
+                }
+                $c = imagecolorat($img, $x, $y);
+                $r = ($c >> 16) & 255;
+                $g = ($c >> 8) & 255;
+                $b = $c & 255;
+                if (min($r, $g, $b) >= 205 && max($r, $g, $b) - min($r, $g, $b) <= 40) {
+                    $state[$y * $w + $x] = 3;   // 3: fringe, cleared below
+                }
+            }
+        }
+
         imagealphablending($img, false);
         $clear = imagecolorallocatealpha($img, 0, 0, 0, 127);
         [$minX, $minY, $maxX, $maxY] = [$w, $h, -1, -1];
         for ($y = 0; $y < $h; $y++) {
             for ($x = 0; $x < $w; $x++) {
                 $s = $state[$y * $w + $x];
-                if ($s === 1) {
+                if ($s === 1 || $s === 3) {
                     imagesetpixel($img, $x, $y, $clear);
                     continue;
                 }

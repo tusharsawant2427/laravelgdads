@@ -4,6 +4,7 @@ namespace Packitifotech\Laragdads\Ads;
 
 use ColorThief\ColorThief;
 use GdImage;
+use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Color;
 
 /**
@@ -46,40 +47,43 @@ final class Theme
      */
     public static function fromImages(array $images): self
     {
-        $palette = [];
+        // Every palette colour with its real share of the cover's pixels (white margins excluded).
+        $entries = [];
         foreach (array_values($images) as $n => $image) {
             try {
                 $colors = ColorThief::getPalette($image, 6, 10) ?: [];
+                $shares = $colors === [] ? [] : self::coverage(ImageLoader::load($image), $colors);
             } catch (\Throwable) {
-                $colors = [];
+                continue;
             }
-            // Later images contribute fewer colours, appended after the earlier (more important) ones.
-            array_push($palette, ...array_slice($colors, 0, max(2, 6 - 2 * $n)));
+            $weight = $n === 0 ? 1.0 : 0.5;   // the front cover decides the brand colour
+            foreach ($colors as $i => $c) {
+                $entries[] = ['c' => $c, 'w' => $shares[$i] * $weight];
+            }
         }
 
-        if ($palette === []) {
+        if ($entries === []) {
             return self::fromColors(self::FALLBACK);
         }
 
-        // Prefer saturated, mid-lightness colours: near-white/black/grey make poor brand colours.
+        // Brand colours sit a little below mid lightness: light pastels and near-black score low.
         $score = static function (array $c): float {
             [, $s, $l] = Color::toHsl($c);
 
-            // Brand colours sit a little below mid lightness: light pastels and near-black score low.
             return $s * (1 - min(1.0, abs($l - 0.42) * 1.6));
         };
-        // ColorThief returns the palette most-common first, but splits one big hue into several boxes.
-        // Weight each colour by how much of the palette shares its hue, so the cover's main colour
-        // wins over a small, brightly saturated banner.
+
+        // A hue is as important as everything of similar hue on the cover put together, so the cover's
+        // main colour wins over a small, brightly saturated banner.
         $ranked = [];
-        foreach ($palette as $i => $c) {
+        foreach ($entries as $e) {
             $cluster = 0.0;
-            foreach ($palette as $j => $other) {
-                if (Color::saturation($other) >= 0.3 && Color::hueDistance($c, $other) < 35) {
-                    $cluster += 1 - 0.1 * $j;
+            foreach ($entries as $o) {
+                if (Color::saturation($o['c']) >= 0.3 && Color::hueDistance($e['c'], $o['c']) < 35) {
+                    $cluster += $o['w'];
                 }
             }
-            $ranked[] = ['c' => $c, 's' => $score($c) * $cluster ** 1.5 * (1 - 0.05 * $i)];
+            $ranked[] = ['c' => $e['c'], 's' => $score($e['c']) * $cluster];
         }
         usort($ranked, fn ($a, $b) => $b['s'] <=> $a['s']);
         $palette = array_column($ranked, 'c');
@@ -92,10 +96,10 @@ final class Theme
         $secondary = null;
         $accent = null;
         foreach (array_slice($palette, 1) as $c) {
-            // A neighbouring hue gives a calm gradient; a far-away one (purple -> green) looks garish.
-            if ($secondary === null && $score($c) > 0.12 && Color::hueDistance($primary, $c) >= 20 && Color::hueDistance($primary, $c) <= 70) {
+            // A neighbouring hue gives a calm gradient; a far-away one (purple -> orange) goes muddy, so it becomes the accent instead.
+            if ($secondary === null && $score($c) > 0.12 && Color::hueDistance($primary, $c) >= 20 && Color::hueDistance($primary, $c) <= 45) {
                 $secondary = $c;
-            } elseif ($accent === null && Color::saturation($c) >= 0.5 && Color::hueDistance($primary, $c) >= 70) {
+            } elseif ($accent === null && Color::saturation($c) >= 0.5 && Color::hueDistance($primary, $c) >= 45) {
                 $accent = $c;
             }
         }
@@ -139,6 +143,46 @@ final class Theme
         [$h, $s, $l] = Color::toHsl($this->accent);
 
         return Color::fromHsl($h, max($s, 0.85), max(0.58, min($l, 0.68)));
+    }
+
+    /**
+     * Share of the image covered by each palette colour (nearest-colour assignment on a small copy).
+     * Transparent and near-white pixels (studio backgrounds, margins) are ignored.
+     *
+     * @param  array<int, array{0:int,1:int,2:int}> $palette
+     * @return float[] same keys as $palette, summing to 1
+     */
+    private static function coverage(GdImage $image, array $palette): array
+    {
+        $small = imagescale($image, 64, -1, IMG_BILINEAR_FIXED) ?: $image;
+        $w = imagesx($small);
+        $h = imagesy($small);
+        $counts = array_fill_keys(array_keys($palette), 0);
+        $total = 0;
+
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                $px = imagecolorat($small, $x, $y);
+                $r = ($px >> 16) & 255;
+                $g = ($px >> 8) & 255;
+                $b = $px & 255;
+                if ((($px >> 24) & 0x7F) > 40 || min($r, $g, $b) >= 235) {
+                    continue;
+                }
+                $best = null;
+                $bestD = PHP_INT_MAX;
+                foreach ($palette as $i => [$pr, $pg, $pb]) {
+                    $d = ($r - $pr) ** 2 + ($g - $pg) ** 2 + ($b - $pb) ** 2;
+                    if ($d < $bestD) {
+                        [$best, $bestD] = [$i, $d];
+                    }
+                }
+                $counts[$best]++;
+                $total++;
+            }
+        }
+
+        return array_map(fn ($n) => $total > 0 ? $n / $total : 1 / count($palette), $counts);
     }
 
     public function ctaText(): array

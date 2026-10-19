@@ -336,4 +336,17 @@ final class AdBuilderTest extends TestCase
         $this->assertGreaterThan(200, imagesx($book));
         $this->assertGreaterThan(280, imagesy($book));
     }
+
+    public function test_theme_follows_the_largest_colour_area_not_the_most_saturated_banner(): void
+    {
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(20, 16, 160, 240, [140, 40, 130]);            // big purple cover
+        $c->rect(60, 40, 90, 22, [235, 90, 20]);                // small, very saturated orange banner
+        $path = $this->dir . '/cover.png';
+        imagepng($c->image(), $path);
+
+        $theme = Theme::fromImage($path);
+        $this->assertLessThan(30, Color::hueDistance($theme->primary, [140, 40, 130]));
+        $this->assertLessThan(40, Color::hueDistance($theme->accent, [235, 90, 20]), 'the banner colour becomes the accent');
+    }
 }
