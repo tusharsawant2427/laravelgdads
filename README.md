@@ -4,62 +4,30 @@ Laravel GD Ads
 Generate polished ad banners from product images with PHP and GD: book covers, boxes, bottles, courses, anything
 with a packshot. Pick a size, give it images and copy, get a ready-to-publish PNG/JPG/WebP.
 
-| Landscape, front + back cover | Square |
+| Square (plain layout) | Story |
 | --- | --- |
-| ![landscape](docs/examples/landscape-front-back.png) | ![square](docs/examples/square.png) |
+| ![square](docs/examples/square.png) | ![story](docs/examples/story.png) |
 
 ![billboard](docs/examples/billboard.png)
 ![leaderboard](docs/examples/leaderboard.png)
-![strip](docs/examples/strip-lines.png)
-![promo](docs/examples/promo.png)
 ![companion](docs/examples/companion.png)
 ![companion strip](docs/examples/companion-strip.png)
-![strip ssc](docs/examples/strip-ai-ssc-blueprint.png)
-![strip physics](docs/examples/strip-design-physics.png)
+![template](docs/examples/template-lavender-books.png)
 
-The images above come from `php examples/generate.php`.
+The plain-layout and showcase images come from `php examples/generate.php`, the illustrated ones from `php examples/companion.php` and
+`php examples/templates.php`.
 
 ## What you get
 
 - **Fluent builder**: one readable chain per ad.
 - **Ad-size presets** (`AdSize`): 300x250, 728x90, 970x250, 300x600, 160x600, 320x50/100, 1080x1080, 1080x1350, 1080x1920, 1200x628 and more. Render one creative to many sizes with `renderSizes()`.
-- **Layouts**: `books` (packshots with the background removed, front + tilted back cover), `split`, `stacked`, `hero` (full-bleed photo with a scrim), `showcase` (ultra-wide strips). `auto` picks one from the size and the image. Register your own with `AdBuilder::registerLayout()`.
+- **Layouts**: `stacked` (the plain layout: product(s) on top, text below; used for square, portrait, story and other non-wide sizes), `showcase` (wide banners: a cover on each side, message in the middle), `hero` (full-bleed photo with a scrim), `companion` (light illustrated ad) and the 53 illustrated `template`s for strips. `auto` picks one from the size. Register your own with `AdBuilder::registerLayout()`.
 - **Colour from the image**: the dominant brand hue becomes the background; headline and button colours are picked for readable contrast (WCAG AA).
 - **Packshot cut-out**: a flat white studio background is removed, white areas inside the product are kept, and the baked-in drop shadow turns into a real soft shadow.
 - **Auto-fitting text**: headline, sub-headline and tick-list shrink and wrap to fit any size; text that cannot fit is ellipsised.
 - **Elements**: CTA button, round badge (`-30%`, `NEW`), logo, tick-list of selling points.
-- **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `waves`, `mesh` (simple), `lines`, `bokeh`, `hex`, `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
+- **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `paper` (light page), `mesh` (simple), `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
-
-## Promo banner (website hero style)
-
-A three-column layout: tilted 3D book with a seal, a big stacked title that fills its column, and an info
-column with a plaque and an arrow button. Built from one catalogue photo (`php examples/promo.php`).
-
-```php
-use Packitifotech\Laragdads\Ads\Support\ImageLoader;
-
-$cover = ImageLoader::crop($path, top: 132, left: 42, right: 52);   // drop a marketing banner / white margins
-
-Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
-    ->images($cover)->cutout(false)->book3d()
-    ->logo($brandLogo)->footerLogo($publisherLogo)
-    ->hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions')   // gold / white / light-blue
-    ->details([
-        ['Model Papers for **SSC Board Exam**', 1.35],        // **bold** = accent colour, 1.35 = size scale
-        '---',                                                  // divider
-        'History and Political Science  |  Geography',
-        '• Get the real exam experience  • Detailed insights',
-    ])
-    ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS'])
-    ->tag('Std. X', 'ENGLISH MEDIUM')
-    ->cta("Ace your exam with SSC Exam Topper's Answer Sheet")->ctaStyle('arrow')
-    ->font($boldFontWithDevanagari, $regularFont)              // Hindi/Marathi need a font that has the glyphs
-    ->save('ads/ssc-promo.png');
-```
-
-Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
-Everything is drawn with GD: there is no AI image generation and no network call.
 
 ## Illustrated templates (53 banner styles, grouped by subject)
 
@@ -133,7 +101,7 @@ Icons (`Support\Icons::names()`): book, doc, list, bulb, atom, incline, prism, f
 ## AI backgrounds (AI Horde / Stable Horde)
 
 Let a Stable Diffusion model paint the background art, in a different style each time. Only the *background* is
-AI generated: the cover, headline, seal and buttons are still drawn by the layout, so the model never has to
+AI generated: the cover, headline and buttons are still drawn by the layout, so the model never has to
 spell anything. A contrast scrim is added automatically so the text stays readable on any result.
 
 ```php
@@ -159,15 +127,12 @@ $ad->lastAiError();  // why it fell back to the built-in background (null when A
   for Physics, an exam hall or classroom for board papers, a chemistry lab for Chemistry, a study desk for MCQ books, and so on
   (`classroom`, `exam-hall`, `study-desk`, `library`, `science-lab`, `physics-concept`, `chemistry-lab`, `maths-geometry`,
   `biology-lab`, `notebook-desk`, `graduation`, `books-stack`). `'abstract'` gives the old abstract art instead.
-- **Variety:** `->variant($n)` changes the product side (left/right, top/bottom), text alignment and panel; `->textAlign()`, `->imageSide()`
-  and `->textPanel()` set them directly. With a photographic background a frosted panel is put behind the text automatically.
+- **Readability:** with a photographic background a frosted panel is put behind the text automatically (`->textPanel(false)` turns it off); `->textAlign('left'|'center'|'right')` sets the alignment.
 - **Wide banners:** backgrounds are generated natively wide (1152x192 for 6:1 strips, 1024x256, 960x320) with panoramic prompts
   written for each scene (a row of books on a shelf, a long lab bench, rows of exam desks ...), not cropped from a landscape photo.
   The overlay is kept light and the headline gets a soft shadow, so the scene stays visible.
 - **Your own prompt:** `->aiBackground(prompt: 'wide panoramic photo, ...')` overrides the built-in one.
-- **Strips (1200x200):** the promo layout also comes in a compact strip form: whole (uncropped) cover in a card with a seal, a two-line stacked
-  title, two info lines, a plaque and an arrow button, on a designed background (`php examples/strip.php`) or on AI art behind it
-  (`->aiBackground('blueprint-science')`, `'chalkboard-doodle'`, `'fluid-gradient'`).
+- **Strips (1200x200):** use the showcase layout (a cover on each side, the headline between) or, for illustrated strips, the templates (`->template($name)` or `->subject($label)`). AI backgrounds only apply to the layouts, not to the templates.
 - **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
 - Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.
 
@@ -214,10 +179,10 @@ foreach ($files as $label => $binary) {                    // "1080x1080" => PNG
 
 A long `"Title | tagline"` headline is split automatically into a headline and a subheadline.
 
-Front cover left, back cover right on a background built from the covers (the classic wide strip):
+Front cover left, back cover right (the classic wide strip, showcase layout):
 
 ```php
-Laragdads::ad()->size(AdSize::STRIP)->images($front, $back)->background('lines')
+Laragdads::ad()->size(AdSize::STRIP)->images($front, $back)
     ->headline('JEE Main Mathematics Absolute Vol 2 Notes with MCQs | As per latest syllabus issued by NTA')
     ->save(storage_path('app/ads/strip.png'));
 ```
@@ -232,10 +197,10 @@ Laragdads::ad()->size(AdSize::STRIP)->images($front, $back)->background('lines')
 | `headline()`, `subheadline()`, `cta()`, `badge()` | copy |
 | `features(array)` | tick list, up to 5 items, shown when the format has room |
 | `font($path, $bodyFont = null)` | TrueType/OpenType font (DejaVu Sans Bold is bundled) |
-| `layout($name)` | `auto`, `books`, `split`, `stacked`, `hero`, `showcase` or a registered one |
+| `layout($name)` | `auto`, `stacked`, `hero`, `showcase`, `companion` or a registered one |
 | `background($style)` | see `Backgrounds::names()` |
 | `theme($hex \| [r,g,b] \| $imagePath \| Theme)` | brand colour or the image to sample colours from |
-| `imageSide('left'\|'right')`, `imageFit('cover'\|'contain')`, `cutout(bool)`, `shadows(bool)` | image placement |
+| `imageFit('cover'\|'contain')`, `cutout(bool)`, `shadows(bool)` | image placement |
 | `format('png'\|'jpg'\|'webp', $quality)` | encoding used by `toBinary()`/`save()` |
 
 ### Fonts and languages

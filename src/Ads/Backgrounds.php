@@ -11,8 +11,8 @@ use Packitifotech\Laragdads\Services\Image\ImageService;
 /**
  * Background painters. A painter is `fn (Canvas $canvas, AdSpec $spec, Theme $theme): void`.
  *
- * Built-in modern styles, all coloured from the cover/brand: auto (= studio, the richest), studio, waves, mesh, lines, bokeh, hex, gradient,
- * solid, blur.
+ * Built-in styles, all coloured from the cover/brand: auto (= studio, a layered design), studio, paper (the light page of the
+ * companion layout), mesh (simple), gradient, solid, blur.
  * Legacy styles (wave1, wave, abstract, stripes, radial, spotlight, burst, marketing, medical,
  * mobile-dots, mobile-card, mobile-diagonal, mobile-flat) are the original ImageService painters.
  * Add your own with Backgrounds::register().
@@ -37,13 +37,8 @@ final class Backgrounds
 
         match ($style) {
             'auto', 'studio' => self::studio($canvas, $theme),
-            'waves' => self::waves($canvas, $theme),
-            'arcs' => self::arcs($canvas, $theme),
             'paper' => self::paper($canvas, $theme),
             'mesh' => self::mesh($canvas, $theme),
-            'lines' => self::lines($canvas, $theme),
-            'bokeh' => self::bokeh($canvas, $theme),
-            'hex' => self::hex($canvas, $theme),
             'gradient' => $canvas->gradient($theme->backgroundFrom, $theme->backgroundTo, 'diagonal'),
             'solid' => $canvas->rect(0, 0, $canvas->width(), $canvas->height(), $theme->backgroundFrom),
             'blur' => self::blur($canvas, $spec, $theme),
@@ -55,7 +50,7 @@ final class Backgrounds
     public static function names(): array
     {
         return array_values(array_unique(array_merge(
-            ['auto', 'studio', 'arcs', 'paper', 'waves', 'mesh', 'lines', 'bokeh', 'hex', 'gradient', 'solid', 'blur'],
+            ['auto', 'studio', 'paper', 'mesh', 'gradient', 'solid', 'blur'],
             array_keys(self::legacyMap()),
             array_keys(self::$custom)
         )));
@@ -165,64 +160,8 @@ final class Backgrounds
         }, 1);
     }
 
-    /**
-     * Deep brand-coloured backdrop with a large pale glow on the left (where the product sits), sweeping
-     * accent/teal arcs and a few ring accents: the look of a premium website hero banner.
-     */
-    private static function arcs(Canvas $canvas, Theme $theme): void
-    {
-        // Both ends come mostly from the primary colour: a pale second colour would muddy the dark base.
-        $deep = Color::darken($theme->backgroundFrom, 0.4);
-        $mid = Color::mix(Color::darken($theme->backgroundFrom, 0.62), Color::darken($theme->backgroundTo, 0.4), 0.3);
-        $canvas->gradient($deep, $mid, 'horizontal');
-        self::arcsDecor($canvas, $theme);
-    }
 
-    /**
-     * The glow, pale disc and sweeping arcs of the "arcs" style, drawn over any base (a gradient, or an AI image).
-     * The pale disc sits on the left, behind the product.
-     */
-    public static function arcsDecor(Canvas $canvas, Theme $theme): void
-    {
-        $w = $canvas->width();
-        $h = $canvas->height();
-        $wide = $w / max(1, $h) >= 4.5;
-        $r = $wide ? (int) ($h * 1.5) : (int) ($h * 1.0);   // radii are relative to the height: strips need bigger ones
-        $gold = $theme->gold();
-        $teal = Color::mix(Color::lighten($theme->primary, 0.35), [40, 200, 190], 0.5);
 
-        $canvas->glow((int) ($w * 0.62), (int) ($h * 0.35), (int) ($r * 1.25), Color::lighten($theme->primary, 0.2), 0.22);
-
-        // Big pale disc behind the product, fading out to the right.
-        $canvas->glow((int) ($w * ($wide ? 0.07 : 0.14)), (int) ($h * 0.42), $r, [255, 255, 255], $wide ? 0.8 : 0.9);
-        $canvas->glow((int) ($w * 0.04), (int) ($h * 0.1), (int) ($r * 0.7), Color::lighten($theme->primary, 0.7), 0.6);
-
-        $canvas->decor(function ($layer, int $k) use ($w, $h, $gold, $teal, $canvas, $wide) {
-            imagesetthickness($layer, max(2, (int) round(($wide ? $h * 0.012 : $h * 0.006) * $k)));
-            $arc = fn (float $cx, float $cy, float $d, int $from, int $to, array $c, float $a) => imagearc(
-                $layer, (int) ($w * $cx * $k), (int) ($h * $cy * $k), (int) (($wide ? $h * 1.7 : $h) * $d * $k), (int) (($wide ? $h * 1.7 : $h) * $d * $k), $from, $to, $canvas->colorOn($layer, $c, $a)
-            );
-            $wide
-                ? [$arc(0.09, 0.85, 1.0, 200, 340, $gold, 0.65), $arc(0.08, 0.95, 1.15, 205, 335, $teal, 0.5), $arc(0.62, 1.4, 1.0, 215, 325, $gold, 0.3)]
-                : [$arc(0.11, 0.68, 1.15, 200, 340, $gold, 0.6), $arc(0.10, 0.74, 1.3, 205, 335, $teal, 0.5), $arc(0.20, 1.02, 1.05, 235, 325, $gold, 0.35)];
-            imagesetthickness($layer, max(1, $k));
-            $ring = $canvas->colorOn($layer, [255, 255, 255], 0.35);
-            $rr = (int) (min($w, $h * 3) * 0.05 * $k);
-            imageellipse($layer, (int) ($w * 0.31 * $k), (int) ($h * 0.12 * $k), $rr, $rr, $ring);
-            imageellipse($layer, (int) ($w * 0.04 * $k), (int) ($h * 0.78 * $k), (int) ($rr * 0.7), (int) ($rr * 0.7), $ring);
-        });
-
-        $black = [0, 0, 0];
-        $canvas->gradient($black, $black, 'vertical', [0, (int) ($h * 0.75), $w, $h - (int) ($h * 0.75)], 0.0, 0.25);
-    }
-
-    /** Flowing translucent wave bands across the lower part of the canvas. */
-    private static function waves(Canvas $canvas, Theme $theme): void
-    {
-        self::mesh($canvas, $theme);
-        self::drawWaves($canvas, $theme, self::rng($canvas->width() * 5 + $canvas->height()), 4);
-        self::vignette($canvas);
-    }
 
     private static function drawWaves(Canvas $canvas, Theme $theme, \Closure $rand, int $bands): void
     {
@@ -260,75 +199,8 @@ final class Backgrounds
         $canvas->gradient($black, $black, 'horizontal', [(int) ($w * 0.88), 0, $w - (int) ($w * 0.88), $h], 0.0, 0.16);
     }
 
-    /** Long, thin crossing lines in a lighter tone of the brand colour (the classic "ad strip" look). */
-    private static function lines(Canvas $canvas, Theme $theme): void
-    {
-        self::mesh($canvas, $theme);
-        $w = $canvas->width();
-        $h = $canvas->height();
-        $rand = self::rng($w * 31 + $h);
-        $tint = Color::lighten($theme->primary, 0.55);
-        $gold = Color::mix($theme->accent, $tint, 0.4);
 
-        $canvas->decor(function ($layer, int $k) use ($w, $h, $rand, $tint, $gold, $canvas) {
-            imagesetthickness($layer, max(1, $k));
-            $count = 9 + (int) round(max($w, $h) / 160);
-            for ($i = 0; $i < $count; $i++) {
-                $x1 = (int) (($rand() * 1.4 - 0.2) * $w * $k);
-                $y1 = (int) (($rand() * 1.4 - 0.2) * $h * $k);
-                $angle = ($rand() * 0.9 + 0.05) * M_PI * ($rand() > 0.5 ? 1 : -1);
-                $len = (0.35 + $rand() * 0.8) * max($w, $h) * $k;
-                $color = $canvas->colorOn($layer, $i % 3 === 0 ? $gold : $tint, 0.24 + $rand() * 0.22);
-                imageline($layer, $x1, $y1, (int) ($x1 + cos($angle) * $len), (int) ($y1 + sin($angle) * $len), $color);
-            }
-        });
-    }
 
-    /** Out-of-focus light discs. */
-    private static function bokeh(Canvas $canvas, Theme $theme): void
-    {
-        self::mesh($canvas, $theme);
-        $w = $canvas->width();
-        $h = $canvas->height();
-        $rand = self::rng($w * 17 + $h);
-        $palette = [Color::lighten($theme->primary, 0.5), $theme->accent, Color::lighten($theme->secondary, 0.45), [255, 255, 255]];
-
-        $count = 12 + (int) round(max($w, $h) / 120);
-        for ($i = 0; $i < $count; $i++) {
-            $d = (int) round((0.04 + $rand() * 0.16) * max($w, $h));
-            $canvas->circle((int) ($rand() * $w), (int) ($rand() * $h), max(8, $d), $palette[$i % 4], 0.07 + $rand() * 0.14);
-        }
-    }
-
-    /** Hexagon grid: a clean "science / tech" texture. */
-    private static function hex(Canvas $canvas, Theme $theme): void
-    {
-        self::mesh($canvas, $theme);
-        $w = $canvas->width();
-        $h = $canvas->height();
-        $tint = Color::lighten($theme->primary, 0.6);
-        $r = max(18, (int) round(max($w, $h) / 16));
-
-        $canvas->decor(function ($layer, int $k) use ($w, $h, $r, $tint, $canvas) {
-            imagesetthickness($layer, max(1, $k));
-            $color = $canvas->colorOn($layer, $tint, 0.14);
-            $dx = $r * sqrt(3);
-            $dy = $r * 1.5;
-            for ($row = -1; $row * $dy < $h + $r; $row++) {
-                for ($col = -1; $col * $dx < $w + $dx; $col++) {
-                    $cx = ($col + ($row % 2 ? 0.5 : 0)) * $dx;
-                    $cy = $row * $dy;
-                    $pts = [];
-                    for ($v = 0; $v < 6; $v++) {
-                        $a = M_PI / 6 + $v * M_PI / 3;
-                        $pts[] = (int) (($cx + $r * cos($a)) * $k);
-                        $pts[] = (int) (($cy + $r * sin($a)) * $k);
-                    }
-                    imagepolygon($layer, $pts, $color);
-                }
-            }
-        });
-    }
 
     /** Deterministic 0..1 generator: the same size always gives the same pattern. */
     private static function rng(int $seed): \Closure

@@ -74,7 +74,7 @@ final class AiBackground
      * The scrim strength is solved from the image's average brightness; $lighter caps it when a text panel
      * already guarantees readability.
      */
-    public static function paint(Canvas $canvas, GdImage $image, Theme $theme, bool $lighter = false, ?float $floor = null): void
+    public static function paint(Canvas $canvas, GdImage $image, Theme $theme, bool $lighter = false): void
     {
         $w = $canvas->width();
         $h = $canvas->height();
@@ -95,7 +95,7 @@ final class AiBackground
         $target = $darkMode ? 0.16 : 0.8;
 
         $needed = abs($avg - $scrimL) < 0.02 ? 0.3 : ($avg - $target) / ($avg - $scrimL);
-        $opacity = $floor !== null ? max($floor, min(0.8, $needed)) : ($strip ? ($native ? max(0.22, min(0.46, $needed)) : max(0.5, min(0.74, $needed))) : ($lighter ? max(0.15, min(0.4, $needed)) : max(0.3, min(0.78, $needed))));
+        $opacity = $strip ? ($native ? max(0.22, min(0.46, $needed)) : max(0.5, min(0.74, $needed))) : ($lighter ? max(0.15, min(0.4, $needed)) : max(0.3, min(0.78, $needed)));
         $canvas->rect(0, 0, $w, $h, $scrim, $opacity);
 
         if ($strip) {

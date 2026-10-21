@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Renders a gallery of sample ads into the given directory (default: examples/output).
+ * Renders a gallery of sample ads (plain layout and showcase layout) into the given directory (default: examples/output).
  *
  *   php examples/generate.php [output-dir]
  *
@@ -68,29 +68,29 @@ $ad = fn () => AdBuilder::make()
     ->features(['6400+ chapter-wise MCQs', 'Previous years\' questions (PYQs)', 'Model question papers', 'Solutions via QR codes'])
     ->cta('Buy now')
     ->badge('6400+ MCQs')
-    ->images("$out/assets/chemistry.png");
+    ->images("$out/assets/chemistry.png", "$out/assets/back.png");
 
+// The plain layout (image on top, text below) serves square, portrait, story and the other non-wide sizes; wide banners use
+// the showcase layout (a cover on each side, message in the middle). See examples/templates.php and examples/companion.php
+// for the illustrated strips.
 $jobs = [
-    'landscape-front' => $ad()->size(AdSize::LANDSCAPE),
-    'landscape-front-back' => $ad()->size(AdSize::LANDSCAPE)->images("$out/assets/chemistry.png", "$out/assets/back.png"),
-    'strip-lines' => AdBuilder::make()->font($font)->size(AdSize::STRIP)->images("$out/assets/chemistry.png", "$out/assets/back.png")->background('lines')
-        ->headline('JEE Main Mathematics Absolute Vol 2 Notes with MCQs | As per latest syllabus issued by NTA'),
-    'landscape-right' => $ad()->size(AdSize::LANDSCAPE)->imageSide('right')->images("$out/assets/physics.png", "$out/assets/chemistry.png"),
-    'square' => $ad()->size(AdSize::SQUARE)->images("$out/assets/chemistry.png", "$out/assets/back.png"),
-    'story' => $ad()->size(AdSize::STORY)->images("$out/assets/chemistry.png", "$out/assets/back.png"),
-    'portrait-card' => $ad()->size(AdSize::PORTRAIT)->layout('stacked')->imageFit('contain'),
-    'billboard' => $ad()->size(AdSize::BILLBOARD)->images("$out/assets/chemistry.png", "$out/assets/physics.png")->subheadline(null)->badge('NEW'),
-    'leaderboard' => $ad()->size(AdSize::LEADERBOARD)->images("$out/assets/chemistry.png", "$out/assets/physics.png")->subheadline(null)->badge(null),
-    'medium-rectangle' => $ad()->size(AdSize::MEDIUM_RECTANGLE),
+    'square' => $ad()->size(AdSize::SQUARE),
+    'portrait' => $ad()->size(AdSize::PORTRAIT),
+    'story' => $ad()->size(AdSize::STORY),
+    'landscape' => $ad()->size(AdSize::LANDSCAPE),
     'half-page' => $ad()->size(AdSize::HALF_PAGE),
+    'medium-rectangle' => $ad()->size(AdSize::MEDIUM_RECTANGLE),
+    'billboard' => $ad()->size(AdSize::BILLBOARD)->subheadline(null)->badge('NEW'),
+    'leaderboard' => $ad()->size(AdSize::LEADERBOARD)->subheadline(null)->badge(null),
     'mobile-banner' => $ad()->size(AdSize::MOBILE_BANNER)->subheadline(null)->cta(null),
-    'brand-colour' => $ad()->size(AdSize::LANDSCAPE)->theme('#0f766e'),
-    'blur-bg' => $ad()->size(AdSize::LANDSCAPE)->background('blur'),
-    'no-image' => AdBuilder::make()->font($font)->size(AdSize::LANDSCAPE)->headline('MHT-CET 2026 exam prep')->subheadline('Mock tests, PYQs and solutions in one place')->features(['Full mock tests', 'Chapter-wise MCQs'])->cta('Start practising')->badge('-30%'),
+    'strip' => $ad()->size(AdSize::STRIP)->subheadline(null)->features([])->badge(null),
+    'brand-colour' => $ad()->size(AdSize::SQUARE)->theme('#0f766e'),
+    'blur-bg' => $ad()->size(AdSize::SQUARE)->background('blur'),
+    'no-image' => AdBuilder::make()->font($font)->size(AdSize::SQUARE)->headline('MHT-CET 2026 exam prep')->subheadline('Mock tests, PYQs and solutions in one place')->features(['Full mock tests', 'Chapter-wise MCQs'])->cta('Start practising')->badge('-30%'),
 ];
 
 foreach ($jobs as $name => $job) {
     $t = microtime(true);
     $job->save("$out/$name.png");
-    printf("%-22s %5.0f ms\n", $name, (microtime(true) - $t) * 1000);
+    printf("%-18s %5.0f ms\n", $name, (microtime(true) - $t) * 1000);
 }

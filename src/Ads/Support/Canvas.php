@@ -328,62 +328,7 @@ final class Canvas
         return $y + count($lines) * $lineHeightPx;
     }
 
-    /**
-     * Draw one line of text squeezed horizontally (0 < $squeeze <= 1): the tall, narrow "condensed" look
-     * without needing a condensed font. $x/$boxW position the squeezed result; $y is the top of the line box.
-     *
-     * @return array{0:int,1:int} drawn width, line height
-     */
-    public function squeezedLine(string $text, Typography $type, int $sizePx, int $x, int $y, int $boxW, array $color, float $squeeze = 0.78, string $align = 'center'): array
-    {
-        $k = 2;
-        [$tw, ] = $type->measure($text, $sizePx * $k);
-        $lh = (int) round($sizePx * 1.25);
-        $layer = $this->layer($tw + 8 * $k, $lh * $k);
-        imagettftext($layer, $sizePx * $k * Typography::PX_TO_PT, 0, 4 * $k, (int) (($lh * $k - $sizePx * $k * 1.25) / 2 + $type->ascent($sizePx * $k) + $sizePx * $k * 0.12), $this->alloc($layer, $color, 1.0), $type->fontPath, $text);
 
-        $dw = max(1, (int) round(($tw + 8 * $k) / $k * $squeeze));
-        $small = $this->layer($dw, $lh);
-        imagealphablending($small, false);
-        imagecopyresampled($small, $layer, 0, 0, 0, 0, $dw, $lh, imagesx($layer), imagesy($layer));
-
-        $dx = match ($align) {
-            'left' => $x,
-            'right' => $x + $boxW - $dw,
-            default => $x + intdiv($boxW - $dw, 2),
-        };
-        $this->compose($small, $dx, $y);
-
-        return [$dw, $lh];
-    }
-
-    /**
-     * Draw wrapped RichText lines. Bold words use $boldColor.
-     *
-     * @param array<int, array<int, array{0:string,1:bool}>> $lines
-     */
-    public function richLines(array $lines, RichText $rich, int $size, int $x, int $y, int $boxW, array $color, array $boldColor, string $align = 'left', int $lineHeightPx = 0): int
-    {
-        $lineHeightPx = $lineHeightPx ?: (int) round($size * 1.3);
-        $space = $rich->regular->measure(' ', $size)[0];
-
-        foreach ($lines as $line) {
-            $lw = $rich->width($line, $size);
-            $cx = match ($align) {
-                'center' => $x + intdiv($boxW - $lw, 2),
-                'right' => $x + $boxW - $lw,
-                default => $x,
-            };
-            foreach ($line as $i => [$word, $isBold]) {
-                $font = $isBold ? $rich->bold : $rich->regular;
-                $this->lines([$word], $font, $size, $cx, $y, 10000, $isBold ? $boldColor : $color, 'left', $lineHeightPx);
-                $cx += $font->measure($word, $size)[0] + $space;
-            }
-            $y += $lineHeightPx;
-        }
-
-        return $y;
-    }
 
     // ----------------------------------------------------- hand-made shapes
 

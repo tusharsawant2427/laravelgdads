@@ -338,7 +338,7 @@ final class CompanionLayout extends AbstractLayout
                 $s->features[] = trim($title . ($subtitle !== '' ? ' ' . $subtitle : ''));
             }
         }
-        $layout = $spec->aspectRatio() >= 3.2 ? new ShowcaseLayout() : new BooksLayout();
+        $layout = $spec->aspectRatio() >= 3.2 ? new ShowcaseLayout() : new StackedLayout();
         $layout->render($canvas, $s, $theme, $bold, $body);
     }
 }

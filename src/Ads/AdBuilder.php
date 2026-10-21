@@ -5,16 +5,13 @@ namespace Packitifotech\Laragdads\Ads;
 use GdImage;
 use InvalidArgumentException;
 use Packitifotech\Laragdads\Ads\Ai\AiBackground;
-use Packitifotech\Laragdads\Ads\Layouts\BooksLayout;
 use Packitifotech\Laragdads\Ads\Layouts\CompanionLayout;
 use Packitifotech\Laragdads\Ads\Layouts\HeroLayout;
 use Packitifotech\Laragdads\Ads\Layouts\Layout;
-use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
 use Packitifotech\Laragdads\Ads\Layouts\ShowcaseLayout;
 use Packitifotech\Laragdads\Ads\Layouts\TemplateLayout;
 use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
-use Packitifotech\Laragdads\Ads\Layouts\SplitLayout;
 use Packitifotech\Laragdads\Ads\Layouts\StackedLayout;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Typography;
@@ -34,9 +31,6 @@ final class AdBuilder
     /** @var array<string, Layout|class-string<Layout>> */
     private static array $layouts = [
         'companion' => CompanionLayout::class,
-        'promo' => PromoLayout::class,
-        'books' => BooksLayout::class,
-        'split' => SplitLayout::class,
         'stacked' => StackedLayout::class,
         'hero' => HeroLayout::class,
         'showcase' => ShowcaseLayout::class,
@@ -158,18 +152,6 @@ final class AdBuilder
         return $this;
     }
 
-    /**
-     * Info column (promo layout). Plain strings or [string, sizeScale]; **bold** words use the accent
-     * colour; '---' draws a divider.
-     *
-     * @param array<int, string|array{0:string,1:float}> $lines
-     */
-    public function details(array $lines): self
-    {
-        $this->spec->details = array_values($lines);
-
-        return $this;
-    }
 
     /**
      * Use one of the illustrated banner templates (see Templates\TemplateLibrary::names()): a light, hand-drawn style
@@ -256,21 +238,7 @@ final class AdBuilder
         return $this;
     }
 
-    /** Plaque such as ->tag('Std. X', 'ENGLISH MEDIUM'). */
-    public function tag(?string $title, ?string $subtitle = null): self
-    {
-        $this->spec->tag = $title === null ? null : [$title, (string) $subtitle];
 
-        return $this;
-    }
-
-    /** Round seal on the product, e.g. ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS']). */
-    public function seal(?array $lines, array|string|null $color = null): self
-    {
-        $this->spec->seal = $lines === null ? null : ['lines' => array_values($lines), 'color' => $color === null ? null : Support\Color::normalize($color)];
-
-        return $this;
-    }
 
     public function footerLogo(GdImage|string|null $logo): self
     {
@@ -279,21 +247,7 @@ final class AdBuilder
         return $this;
     }
 
-    /** 'solid' (default pill) or 'arrow' (light pill with a round arrow button). */
-    public function ctaStyle(string $style): self
-    {
-        $this->spec->ctaStyle = $style === 'arrow' ? 'arrow' : 'solid';
 
-        return $this;
-    }
-
-    /** Render the first cover as a 3D book (spine, page block, gloss) in the books/promo layouts. */
-    public function book3d(bool $enabled = true): self
-    {
-        $this->spec->book3d = $enabled;
-
-        return $this;
-    }
 
     /** Heading font; $bodyFont (optional) is used for the subheadline. */
     public function font(string $fontPath, ?string $bodyFont = null): self
@@ -304,7 +258,7 @@ final class AdBuilder
         return $this;
     }
 
-    /** auto | books | split | stacked | hero | showcase | any registered layout. */
+    /** auto | stacked | hero | showcase | companion | any registered layout. */
     public function layout(string $name): self
     {
         $this->spec->layout = $name;
@@ -352,13 +306,6 @@ final class AdBuilder
         return $this->lastAi;
     }
 
-    /** Where the product sits: 'left' / 'right' in wide layouts, 'top' / 'bottom' in square, portrait and story. */
-    public function imageSide(string $side): self
-    {
-        $this->spec->imageSide = in_array($side, ['left', 'right', 'top', 'bottom'], true) ? $side : 'left';
-
-        return $this;
-    }
 
     /** Text alignment: 'left', 'center' or 'right'. Default depends on the layout. */
     public function textAlign(?string $align): self
@@ -376,22 +323,6 @@ final class AdBuilder
         return $this;
     }
 
-    /**
-     * Pick one of several arrangements (product side, text alignment, panel) so a batch of ads does not all look
-     * the same. The same $seed always gives the same arrangement.
-     */
-    public function variant(int $seed): self
-    {
-        $wide = $this->spec->aspectRatio() >= 1.3;
-        $options = $wide
-            ? [['left', 'left'], ['right', 'left'], ['left', 'center'], ['right', 'right'], ['right', 'center']]
-            : [['top', 'center'], ['bottom', 'center'], ['top', 'left'], ['bottom', 'left']];
-        [$side, $align] = $options[abs($seed) % count($options)];
-        $this->spec->imageSide = $side;
-        $this->spec->textAlign = $align;
-
-        return $this;
-    }
 
     /** 'cover' (fill and crop, default) or 'contain' (show the whole image). */
     public function imageFit(string $fit): self
@@ -492,17 +423,13 @@ final class AdBuilder
                 $layout instanceof TemplateLayout ? $layout->reserveRight($spec, $heading) : 0
             );
         } elseif ($aiImage !== null) {
-            $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
+            $spec->textPanel ??= $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
             // With a panel behind the text the photo can stay brighter and more visible.
-            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel, $layout instanceof PromoLayout ? 0.62 : null);   // promo text has no panel or shadow: darker base
-            $spec->textShadow = $spec->aspectRatio() >= 3.2 && !$layout instanceof PromoLayout;   // photo strips: light overlay + text shadow keep the scene visible
-            if ($layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2) {
-                Backgrounds::arcsDecor($canvas, $theme);   // the promo look (pale disc behind the book, gold arcs) over the AI art
-            }
+            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel);
+            $spec->textShadow = $spec->aspectRatio() >= 3.2;   // photo strips: light overlay + text shadow keep the scene visible
         } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
             $style = $spec->background === 'auto' ? match (true) {
                 $layout instanceof CompanionLayout => 'paper',
-                $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 => 'arcs',
                 default => 'auto',
             } : $spec->background;
             Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
@@ -638,16 +565,10 @@ final class AdBuilder
 
         $name = $this->spec->layout;
         if ($name === 'auto' && $this->spec->hero !== []) {
-            $name = $this->spec->highlights !== [] ? 'companion' : 'promo';
+            $name = 'companion';
         }
         if ($name === 'auto') {
-            $ratio = $this->spec->aspectRatio();
-            $name = match (true) {
-                $ratio >= 3.2 => 'showcase',
-                $this->firstImageIsPackshot() => 'books',
-                $ratio >= 1.3 => 'split',
-                default => 'stacked',
-            };
+            $name = $this->spec->aspectRatio() >= 2.2 ? 'showcase' : 'stacked';
         }
 
         $layout = self::$layouts[$name] ?? throw new InvalidArgumentException(
@@ -657,21 +578,6 @@ final class AdBuilder
         return $layout instanceof Layout ? $layout : new $layout();
     }
 
-    /** A portrait-ish image on a flat white background: a book, box or bottle shot. */
-    private function firstImageIsPackshot(): bool
-    {
-        $first = $this->spec->images[0] ?? null;
-        if ($first === null) {
-            return false;
-        }
-        try {
-            $img = Support\ImageLoader::load($first);
-
-            return imagesy($img) >= imagesx($img) * 0.9 && Support\Cutout::hasLightBackground($img);
-        } catch (\Throwable) {
-            return false;
-        }
-    }
 
     private function flatten(GdImage $image): GdImage
     {

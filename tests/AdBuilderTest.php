@@ -16,7 +16,6 @@ use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Icons;
 use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
-use Packitifotech\Laragdads\Ads\Support\RichText;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Theme;
 use PHPUnit\Framework\TestCase;
@@ -71,7 +70,7 @@ final class AdBuilderTest extends TestCase
     {
         $book = $this->packshot();
         foreach (AdSize::cases() as $size) {
-            foreach (['auto', 'books', 'split', 'stacked', 'hero', 'showcase'] as $layout) {
+            foreach (['auto', 'stacked', 'hero', 'showcase', 'companion'] as $layout) {
                 $png = AdBuilder::make()->size($size)->layout($layout)->images($book, $book)
                     ->headline('Triumph Chemistry')->subheadline('Notes and MCQs')->features(['6400+ MCQs', 'PYQs'])
                     ->cta('Buy now')->badge('-30%')->toPng();
@@ -251,23 +250,11 @@ final class AdBuilderTest extends TestCase
     {
         $book = $this->packshot();
         foreach (['wave1', 'stripes', 'radial', 'spotlight', 'burst', 'medical'] as $style) {
-            $img = $this->decode(AdBuilder::make()->size(400, 300)->images($book)->background($style)->layout('split')->headline('Hi')->toPng());
+            $img = $this->decode(AdBuilder::make()->size(400, 300)->images($book)->background($style)->layout('stacked')->headline('Hi')->toPng());
             $this->assertSame(400, imagesx($img), $style);
         }
     }
 
-    public function test_pattern_backgrounds_render_and_differ_from_plain_mesh(): void
-    {
-        $book = $this->packshot();
-        $render = fn (string $bg) => AdBuilder::make()->size(AdSize::STRIP)->images($book, $book)->background($bg)->headline('Hi')->toPng();
-
-        $mesh = $render('mesh');
-        foreach (['studio', 'waves', 'lines', 'bokeh', 'hex'] as $style) {
-            $this->assertSame(1200, imagesx($this->decode($render($style))), $style);
-            $this->assertNotSame($mesh, $render($style), $style);
-        }
-        $this->assertSame($render('lines'), $render('lines'), 'patterns are deterministic');
-    }
 
     public function test_default_background_is_the_rich_studio_style(): void
     {
@@ -298,33 +285,7 @@ final class AdBuilderTest extends TestCase
         $this->assertLessThan(40, Color::hueDistance($theme->primary, [140, 30, 150]));
     }
 
-    public function test_promo_layout_renders_wide_and_falls_back_on_narrow_sizes(): void
-    {
-        $book = $this->packshot();
-        $ad = fn (AdSize $size) => AdBuilder::make()->size($size)->images($book)->cutout(false)->book3d()
-            ->hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions')
-            ->details([['Model Papers for **SSC Board Exam**', 1.3], '---', 'History | Geography', '• Mock tests  • Solutions'])
-            ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS'])->tag('Std. X', 'ENGLISH MEDIUM')
-            ->cta('Ace your exam')->ctaStyle('arrow')->toPng();
 
-        foreach ([AdSize::WEBSITE_BANNER, AdSize::SQUARE, AdSize::STORY, AdSize::LEADERBOARD] as $size) {
-            $img = $this->decode($ad($size));
-            $this->assertSame([$size->width(), $size->height()], [imagesx($img), imagesy($img)], $size->value);
-        }
-    }
-
-    public function test_rich_text_wraps_and_marks_bold_words(): void
-    {
-        $rich = new RichText(new Typography($this->font), new Typography($this->font));
-        $lines = $rich->wrap('Model Papers for **SSC Board Exam** today', 22, 260);
-
-        $this->assertGreaterThan(1, count($lines));
-        $bold = array_filter(array_merge(...$lines), fn ($w) => $w[1]);
-        $this->assertSame(['SSC', 'Board', 'Exam'], array_values(array_map(fn ($w) => $w[0], $bold)));
-        foreach ($lines as $line) {
-            $this->assertLessThanOrEqual(260, $rich->width($line, 22));
-        }
-    }
 
     public function test_crop_removes_edges_and_rejects_empty_results(): void
     {
@@ -453,32 +414,18 @@ final class AdBuilderTest extends TestCase
         });
 
         AdBuilder::make()->size(AdSize::LANDSCAPE)->theme('#4c1d95')->hero('SSC 54', 'QUESTION PAPERS')
-            ->details(['Mathematics Part - I & II', 'Physics and Chemistry'])
+            ->features(['Mathematics Part - I & II', 'Physics and Chemistry'])
             ->aiBackground('education', seed: 0, topic: null)->toPng();
 
         $this->assertMatchesRegularExpression('/exam|classroom|desk/', $seen[0]);
         $this->assertDoesNotMatchRegularExpression('/geometry|compass|laboratory/', $seen[0]);
     }
 
-    public function test_variants_change_the_arrangement_and_are_reproducible(): void
-    {
-        $book = $this->packshot();
-        $render = fn (int $v) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($book)
-            ->headline('MHT-CET Physics')->subheadline('Previous solved papers')->cta('Buy now')->variant($v)->toPng();
-
-        $this->assertSame($render(0), $render(0));
-        $this->assertNotSame($render(0), $render(1), 'product side differs');
-        $this->assertNotSame($render(0), $render(2), 'text alignment differs');
-
-        $portrait = fn (int $v) => AdBuilder::make()->size(AdSize::SQUARE)->layout('books')->images($book)
-            ->headline('MHT-CET Physics')->cta('Buy now')->variant($v)->toPng();
-        $this->assertNotSame($portrait(0), $portrait(1), 'product on top vs bottom');
-    }
 
     public function test_text_panel_is_automatic_with_ai_backgrounds_and_can_be_turned_off(): void
     {
         AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [90, 120, 80]));
-        $ad = fn (?bool $panel) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($this->packshot())
+        $ad = fn (?bool $panel) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('stacked')->images($this->packshot())
             ->headline('Hello world')->cta('Go')->aiBackground('classroom', prompt: 'panel test ' . $this->dir)->textPanel($panel)->toPng();
 
         $this->assertNotSame($ad(true), $ad(false));
@@ -508,44 +455,8 @@ final class AdBuilderTest extends TestCase
         $this->assertNotSame($ad(true)->cta('Buy now')->toPng(), $ad(true)->cta(null)->toPng());
     }
 
-    public function test_promo_strip_has_the_ad_elements_and_uses_the_whole_cover(): void
-    {
-        $cover = $this->packshot();
-        $strip = fn () => AdBuilder::make()->size(AdSize::STRIP)->images($cover)->cutout(false)
-            ->hero('SSC 54', 'QUESTION PAPERS')
-            ->details([['Model Papers for **SSC Board Exam**', 1.2], 'Latest **Maharashtra Board** pattern'])
-            ->seal(['INCLUDES', '2025', 'BOARD PAPERS'])->tag('Std. X', 'ENGLISH MEDIUM')
-            ->cta('Get the book')->ctaStyle('arrow');
 
-        $img = $this->decode($strip()->toPng());
-        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
 
-        $this->assertNotSame($strip()->toPng(), $strip()->seal(null)->toPng(), 'seal is drawn');
-        $this->assertNotSame($strip()->toPng(), $strip()->tag(null)->toPng(), 'plaque is drawn');
-        $this->assertNotSame($strip()->toPng(), $strip()->cta(null)->toPng(), 'button is drawn');
-
-        // The arrow pill is a light shape in the lower right.
-        [$r, $g, $b] = $this->rgb($img, 880, 135);
-        $this->assertGreaterThan(220, min($r, $g, $b));
-    }
-
-    public function test_promo_strip_works_over_an_ai_background(): void
-    {
-        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [40, 70, 120]));
-        $img = $this->decode(AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->cutout(false)
-            ->hero('MHT-CET', 'PHYSICS')->details(['**28 Years** Papers'])->cta('Buy')->ctaStyle('arrow')
-            ->aiBackground('blueprint-science', prompt: 'promo strip ' . $this->dir)->toPng());
-
-        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
-    }
-
-    public function test_very_short_banners_still_fall_back_gracefully_for_promo_copy(): void
-    {
-        $img = $this->decode(AdBuilder::make()->size(AdSize::LEADERBOARD)->images($this->packshot())
-            ->hero('SSC 54', 'QUESTION PAPERS')->cta('Buy')->toPng());
-
-        $this->assertSame([728, 90], [imagesx($img), imagesy($img)]);
-    }
 
     private function companion(AdSize $size): AdBuilder
     {
@@ -837,5 +748,30 @@ final class AdBuilderTest extends TestCase
         $this->assertCount(1, $rights, 'the button always ends at the same x: ' . json_encode($boxes));
         $this->assertCount(1, $lefts, 'and starts at the same x');
         $this->assertLessThanOrEqual(1200 - 18, reset($rights), 'flush to the right edge with a margin');
+    }
+
+    public function test_removed_styles_are_gone_and_the_plain_layout_serves_the_remaining_sizes(): void
+    {
+        foreach (['seal', 'tag', 'details', 'ctaStyle', 'variant', 'imageSide', 'book3d'] as $method) {
+            $this->assertFalse(method_exists(AdBuilder::class, $method), "{$method}() was removed");
+        }
+        foreach (['arcs', 'waves', 'lines', 'bokeh', 'hex'] as $background) {
+            $this->assertNotContains($background, Backgrounds::names());
+        }
+        foreach (['promo', 'books', 'split'] as $layout) {
+            try {
+                AdBuilder::make()->headline('x')->layout($layout)->render();
+                $this->fail("layout {$layout} still exists");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('Unknown layout', $e->getMessage());
+            }
+        }
+
+        $book = $this->packshot();
+        foreach ([AdSize::STORY, AdSize::SQUARE, AdSize::PORTRAIT, AdSize::MEDIUM_RECTANGLE, AdSize::LANDSCAPE, AdSize::HALF_PAGE] as $size) {
+            $img = $this->decode(AdBuilder::make()->size($size)->images($book, $book)->headline('MHT-CET Physics')
+                ->subheadline('Previous solved papers')->features(['4100+ MCQs', 'Quick Review'])->cta('Buy now')->badge('-30%')->toPng());
+            $this->assertSame([$size->width(), $size->height()], [imagesx($img), imagesy($img)], $size->value);
+        }
     }
 }
