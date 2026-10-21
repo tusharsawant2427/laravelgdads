@@ -171,8 +171,9 @@ final class Backgrounds
      */
     private static function arcs(Canvas $canvas, Theme $theme): void
     {
-        $deep = Color::darken($theme->backgroundFrom, 0.35);
-        $mid = Color::darken($theme->backgroundTo, 0.2);
+        // Both ends come mostly from the primary colour: a pale second colour would muddy the dark base.
+        $deep = Color::darken($theme->backgroundFrom, 0.4);
+        $mid = Color::mix(Color::darken($theme->backgroundFrom, 0.62), Color::darken($theme->backgroundTo, 0.4), 0.3);
         $canvas->gradient($deep, $mid, 'horizontal');
         self::arcsDecor($canvas, $theme);
     }
