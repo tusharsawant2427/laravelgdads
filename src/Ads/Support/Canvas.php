@@ -328,6 +328,271 @@ final class Canvas
         return $y + count($lines) * $lineHeightPx;
     }
 
+    /**
+     * Draw one line of text squeezed horizontally (0 < $squeeze <= 1): the tall, narrow "condensed" look
+     * without needing a condensed font. $x/$boxW position the squeezed result; $y is the top of the line box.
+     *
+     * @return array{0:int,1:int} drawn width, line height
+     */
+    public function squeezedLine(string $text, Typography $type, int $sizePx, int $x, int $y, int $boxW, array $color, float $squeeze = 0.78, string $align = 'center'): array
+    {
+        $k = 2;
+        [$tw, ] = $type->measure($text, $sizePx * $k);
+        $lh = (int) round($sizePx * 1.25);
+        $layer = $this->layer($tw + 8 * $k, $lh * $k);
+        imagettftext($layer, $sizePx * $k * Typography::PX_TO_PT, 0, 4 * $k, (int) (($lh * $k - $sizePx * $k * 1.25) / 2 + $type->ascent($sizePx * $k) + $sizePx * $k * 0.12), $this->alloc($layer, $color, 1.0), $type->fontPath, $text);
+
+        $dw = max(1, (int) round(($tw + 8 * $k) / $k * $squeeze));
+        $small = $this->layer($dw, $lh);
+        imagealphablending($small, false);
+        imagecopyresampled($small, $layer, 0, 0, 0, 0, $dw, $lh, imagesx($layer), imagesy($layer));
+
+        $dx = match ($align) {
+            'left' => $x,
+            'right' => $x + $boxW - $dw,
+            default => $x + intdiv($boxW - $dw, 2),
+        };
+        $this->compose($small, $dx, $y);
+
+        return [$dw, $lh];
+    }
+
+    /**
+     * Draw wrapped RichText lines. Bold words use $boldColor.
+     *
+     * @param array<int, array<int, array{0:string,1:bool}>> $lines
+     */
+    public function richLines(array $lines, RichText $rich, int $size, int $x, int $y, int $boxW, array $color, array $boldColor, string $align = 'left', int $lineHeightPx = 0): int
+    {
+        $lineHeightPx = $lineHeightPx ?: (int) round($size * 1.3);
+        $space = $rich->regular->measure(' ', $size)[0];
+
+        foreach ($lines as $line) {
+            $lw = $rich->width($line, $size);
+            $cx = match ($align) {
+                'center' => $x + intdiv($boxW - $lw, 2),
+                'right' => $x + $boxW - $lw,
+                default => $x,
+            };
+            foreach ($line as $i => [$word, $isBold]) {
+                $font = $isBold ? $rich->bold : $rich->regular;
+                $this->lines([$word], $font, $size, $cx, $y, 10000, $isBold ? $boldColor : $color, 'left', $lineHeightPx);
+                $cx += $font->measure($word, $size)[0] + $space;
+            }
+            $y += $lineHeightPx;
+        }
+
+        return $y;
+    }
+
+    // ----------------------------------------------------- hand-made shapes
+
+    /**
+     * Draw anti-aliased vector shapes inside a region. $draw receives a transparent layer scaled by $k
+     * (coordinates are local to the region, multiplied by $k) and a colour allocator fn(array $rgb, float $opacity): int.
+     * Cheaper than decor() for small shapes: only the region is rendered and downsampled.
+     *
+     * @param callable(GdImage, int, callable): void $draw
+     */
+    public function draw(int $x, int $y, int $w, int $h, callable $draw, int $k = 3): self
+    {
+        if ($w < 1 || $h < 1) {
+            return $this;
+        }
+        $big = $this->layer($w * $k, $h * $k);
+        $draw($big, $k, fn (array $c, float $a = 1.0): int => $this->alloc($big, $c, $a));
+
+        $small = $this->layer($w, $h);
+        imagealphablending($small, false);
+        imagecopyresampled($small, $big, 0, 0, 0, 0, $w, $h, $w * $k, $h * $k);
+        $this->compose($small, $x, $y);
+
+        return $this;
+    }
+
+    /**
+     * Organic filled blob (soft, irregular ellipse): the paint-splash shapes behind products and slogans.
+     */
+    public function blob(int $cx, int $cy, int $rx, int $ry, array $color, float $opacity = 1.0, int $seed = 1, float $wobble = 0.1): self
+    {
+        $pad = (int) ceil(max($rx, $ry) * $wobble * 2.2) + 2;
+        $x = $cx - $rx - $pad;
+        $y = $cy - $ry - $pad;
+        $w = 2 * ($rx + $pad);
+        $h = 2 * ($ry + $pad);
+
+        return $this->draw($x, $y, $w, $h, function (GdImage $layer, int $k, callable $c) use ($rx, $ry, $pad, $color, $opacity, $seed, $wobble) {
+            $pts = self::blobPoints($rx + $pad, $ry + $pad, $rx, $ry, $seed, $wobble, $k);
+            imagefilledpolygon($layer, $pts, $c($color, $opacity));
+        });
+    }
+
+    /** @return int[] flat polygon points of a wobbly ellipse, scaled by $k */
+    public static function blobPoints(float $cx, float $cy, float $rx, float $ry, int $seed, float $wobble = 0.1, int $k = 1, int $n = 72): array
+    {
+        $p1 = fmod($seed * 12.9898, 6.283);
+        $p2 = fmod($seed * 78.233, 6.283);
+        $p3 = fmod($seed * 37.719, 6.283);
+        $pts = [];
+        for ($i = 0; $i < $n; $i++) {
+            $a = $i / $n * M_PI * 2;
+            $r = 1 + $wobble * (sin(2 * $a + $p1) * 0.9 + sin(3 * $a + $p2) * 0.6 + sin(5 * $a + $p3) * 0.3);
+            $pts[] = (int) round(($cx + cos($a) * $rx * $r) * $k);
+            $pts[] = (int) round(($cy + sin($a) * $ry * $r) * $k);
+        }
+
+        return $pts;
+    }
+
+    /**
+     * A highlighter / brush stroke: a slightly rotated band with ragged, tapering ends.
+     */
+    public function brush(int $x, int $y, int $w, int $h, array $color, float $angleDeg = -3.0, float $opacity = 1.0, int $seed = 3): self
+    {
+        $pad = (int) ceil($w * 0.04) + (int) ceil(abs(sin(deg2rad($angleDeg))) * $w) + 4;
+
+        return $this->draw($x - $pad, $y - $pad, $w + 2 * $pad, $h + 2 * $pad, function (GdImage $layer, int $k, callable $c) use ($pad, $w, $h, $color, $opacity, $angleDeg, $seed) {
+            $rand = self::seeded($seed);
+            $top = [];
+            $bottom = [];
+            $steps = 28;
+            for ($i = 0; $i <= $steps; $i++) {
+                $t = $i / $steps;
+                $edge = $i === 0 || $i === $steps ? 0.22 : 0.06;          // ragged, tapering ends
+                $top[] = [$t * $w + ($i === 0 ? $w * 0.012 : ($i === $steps ? -$w * 0.01 : 0)), $h * ($edge * $rand())];
+                $bottom[] = [$t * $w + ($rand() - 0.5) * $w * 0.006, $h * (1 - $edge * $rand())];
+            }
+            $poly = array_merge($top, array_reverse($bottom));
+            $cx = $w / 2;
+            $cy = $h / 2;
+            $rad = deg2rad(-$angleDeg);
+            $flat = [];
+            foreach ($poly as [$px, $py]) {
+                $dx = $px - $cx;
+                $dy = $py - $cy;
+                $flat[] = (int) round(($pad + $cx + $dx * cos($rad) - $dy * sin($rad)) * $k);
+                $flat[] = (int) round(($pad + $cy + $dx * sin($rad) + $dy * cos($rad)) * $k);
+            }
+            imagefilledpolygon($layer, $flat, $c($color, $opacity));
+        });
+    }
+
+    /** Deterministic 0..1 generator. */
+    public static function seeded(int $seed): \Closure
+    {
+        $state = abs($seed) % 2147483647 ?: 1;
+
+        return function () use (&$state): float {
+            $state = ($state * 48271) % 2147483647;
+
+            return $state / 2147483647;
+        };
+    }
+
+    // ---------------------------------------------------------- fancy text
+
+    /**
+     * Text at any angle. ($x, $baselineY) is the start of the baseline; $angleDeg is counter-clockwise.
+     */
+    public function text(string $text, Typography $type, int $sizePx, float $x, float $baselineY, array $color, float $angleDeg = 0.0, float $opacity = 1.0): self
+    {
+        imagettftext($this->image, $sizePx * Typography::PX_TO_PT, $angleDeg, (int) round($x), (int) round($baselineY), $this->alloc($this->image, $color, $opacity), $type->fontPath, $text);
+
+        return $this;
+    }
+
+    /**
+     * "Sticker" lettering: thick text with an outline and a hard offset shadow in another colour, optionally
+     * squeezed horizontally. ($x, $y) is the top-left of the line box; returns [width, height] drawn.
+     *
+     * @return array{0:int,1:int}
+     */
+    public function stickerText(string $text, Typography $type, int $sizePx, int $x, int $y, array $fill, array $outline, array $shadow, int $outlinePx = 3, int $shadowPx = 6, float $squeeze = 1.0, int $bold = 2): array
+    {
+        $k = 2;
+        $pad = ($outlinePx + $shadowPx + $bold + 4) * $k;
+        [$tw] = $type->measure($text, $sizePx * $k);
+        $lh = (int) round($sizePx * 1.2);
+        $lw = $tw + 2 * $pad;
+        $layer = $this->layer($lw, $lh * $k + 2 * $pad);
+        $pt = $sizePx * $k * Typography::PX_TO_PT;
+        $baseline = $pad + (int) (($lh * $k - $sizePx * $k * 1.2) / 2 + $type->ascent($sizePx * $k) + $sizePx * $k * 0.1);
+
+        $ring = static function (int $r, int $steps): array {
+            $o = [];
+            for ($i = 0; $i < $steps; $i++) {
+                $o[] = [(int) round(cos($i / $steps * M_PI * 2) * $r), (int) round(sin($i / $steps * M_PI * 2) * $r)];
+            }
+
+            return $o;
+        };
+        $drawText = function (int $dx, int $dy, array $col) use ($layer, $pt, $baseline, $pad, $type, $text) {
+            imagettftext($layer, $pt, 0, $pad + $dx, $baseline + $dy, $this->alloc($layer, $col, 1.0), $type->fontPath, $text);
+        };
+
+        // 1) offset shadow: the outline ring, moved down-right
+        foreach ([$shadowPx * $k, (int) ($shadowPx * $k * 0.5)] as $off) {
+            foreach ($ring(($outlinePx + $bold) * $k, 20) as [$ox, $oy]) {
+                $drawText($ox + $off, $oy + $off, $shadow);
+            }
+        }
+        // 2) outline
+        foreach ($ring(($outlinePx + $bold) * $k, 24) as [$ox, $oy]) {
+            $drawText($ox, $oy, $outline);
+        }
+        // 3) fill, fattened a little
+        foreach ($ring($bold * $k, 12) as [$ox, $oy]) {
+            $drawText($ox, $oy, $fill);
+        }
+        $drawText(0, 0, $fill);
+
+        $dw = max(1, (int) round($lw / $k * $squeeze));
+        $dh = (int) round(imagesy($layer) / $k);
+        $small = $this->layer($dw, $dh);
+        imagealphablending($small, false);
+        imagecopyresampled($small, $layer, 0, 0, 0, 0, $dw, $dh, imagesx($layer), imagesy($layer));
+        $this->compose($small, $x - (int) round($pad / $k * $squeeze), $y - (int) round($pad / $k));
+
+        return [(int) round($tw / $k * $squeeze), $lh];
+    }
+
+    /**
+     * Multiply an image over a region (white stays unchanged, darker shows through): lets a picture on a white
+     * background melt into a light page. The left and top edges fade out over $fade pixels.
+     */
+    public function multiply(GdImage|string $source, int $x, int $y, int $w, int $h, int $fade = 60): self
+    {
+        $src = ImageLoader::load($source);
+        $tile = $this->layer($w, $h);
+        imagealphablending($tile, false);
+        imagecopyresampled($tile, $src, 0, 0, 0, 0, $w, $h, imagesx($src), imagesy($src));
+
+        for ($py = 0; $py < $h; $py++) {
+            $fy = $fade > 0 ? min(1.0, $py / $fade) : 1.0;
+            for ($px = 0; $px < $w; $px++) {
+                $dx = $x + $px;
+                $dy = $y + $py;
+                if ($dx < 0 || $dy < 0 || $dx >= $this->width() || $dy >= $this->height()) {
+                    continue;
+                }
+                $fx = $fade > 0 ? min(1.0, $px / $fade) : 1.0;
+                $amount = $fx * $fy;
+                $s = imagecolorat($tile, $px, $py);
+                $d = imagecolorat($this->image, $dx, $dy);
+                $out = 0;
+                foreach ([16, 8, 0] as $shift) {
+                    $sc = (($s >> $shift) & 255) / 255;
+                    $dc = (($d >> $shift) & 255);
+                    $mul = $dc * $sc;
+                    $out |= ((int) round($dc + ($mul - $dc) * $amount)) << $shift;
+                }
+                imagesetpixel($this->image, $dx, $dy, $out);
+            }
+        }
+
+        return $this;
+    }
+
     // --------------------------------------------------------------- helpers
 
     /** Transparent layer to draw on before compositing. */

@@ -43,8 +43,10 @@ final class ShowcaseLayout extends AbstractLayout
         $short = $h < 130;
 
         $ctaW = 0;
-        if ($spec->cta && $short) {
-            $ctaH = max(20, (int) round($h * 0.46));
+        // With one product (nothing on the right edge) the button also goes there instead of under the text.
+        $ctaBeside = $short || ($right === null && $spec->cta);
+        if ($spec->cta && $ctaBeside) {
+            $ctaH = max(20, (int) round($h * ($short ? 0.46 : 0.34)));
             $probe = $headingFont->measure($spec->cta, max(10, (int) round($ctaH * 0.4)))[0] + (int) round($ctaH * 0.9);
             // Only keep the button if the message still gets most of the width.
             if ($areaW - $probe - $m * 2 > $areaW * 0.55) {
@@ -66,7 +68,7 @@ final class ShowcaseLayout extends AbstractLayout
             $cardH,
             $short ? 'left' : 'center',
             $theme->text,
-            !$short
+            !$ctaBeside
         );
 
         if ($badgeD && $left !== null) {

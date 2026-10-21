@@ -37,6 +37,12 @@ abstract class AbstractLayout implements Layout
             return;
         }
 
+        $align = $spec->textAlign ?? $align;
+        $shadow = $spec->textShadow ? ['color' => [0, 0, 0], 'opacity' => 0.6] : null;
+        if ($spec->textPanel) {
+            $this->panel($canvas, $theme, $x, $y, $w, $h);
+        }
+
         $gap = max(4, (int) round($h * 0.06));
         $ctaH = ($withCta && $spec->cta) ? max(26, min(88, (int) round($h * 0.2))) : 0;
         $ctaSpace = $ctaH ? $ctaH + (int) round($gap * 1.6) : 0;
@@ -72,11 +78,11 @@ abstract class AbstractLayout implements Layout
         $cursor = $y + max(0, intdiv($h - $content, 2));
 
         if ($head !== null) {
-            $cursor = $canvas->lines($head['lines'], $heading, $head['size'], $x, $cursor, $w, $textColor, $align, $head['lineHeight']);
+            $cursor = $canvas->lines($head['lines'], $heading, $head['size'], $x, $cursor, $w, $textColor, $align, $head['lineHeight'], $shadow);
         }
         if ($sub !== null) {
             $cursor += $gap;
-            $cursor = $canvas->lines($sub['lines'], $body, $sub['size'], $x, $cursor, $w, $textColor, $align, $sub['lineHeight'], null, 0.85);
+            $cursor = $canvas->lines($sub['lines'], $body, $sub['size'], $x, $cursor, $w, $textColor, $align, $sub['lineHeight'], $shadow, 0.92);
         }
         if ($list !== null) {
             $cursor += $gap;
@@ -85,6 +91,18 @@ abstract class AbstractLayout implements Layout
         if ($ctaH) {
             $this->cta($canvas, $spec, $theme, $heading, $x, $cursor + (int) round($gap * 1.6), $w, $ctaH, $align);
         }
+    }
+
+    /** Frosted panel behind a text block, for readability on photographic backgrounds. */
+    protected function panel(Canvas $canvas, Theme $theme, int $x, int $y, int $w, int $h): void
+    {
+        $pad = (int) round(min($w, $h) * 0.08);
+        $dark = Color::luminance($theme->text) > 0.5;
+        $fill = $dark ? Color::darken($theme->primary, 0.7) : [255, 255, 255];
+        $r = (int) round($pad * 1.6);
+
+        $canvas->rect($x - $pad, $y - $pad, $w + 2 * $pad, $h + 2 * $pad, $dark ? [255, 255, 255] : [0, 0, 0], 0.12, $r);
+        $canvas->rect($x - $pad + 2, $y - $pad + 2, $w + 2 * $pad - 4, $h + 2 * $pad - 4, $fill, $dark ? 0.62 : 0.7, max(2, $r - 2));
     }
 
     /**

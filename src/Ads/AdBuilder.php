@@ -4,9 +4,12 @@ namespace Packitifotech\Laragdads\Ads;
 
 use GdImage;
 use InvalidArgumentException;
+use Packitifotech\Laragdads\Ads\Ai\AiBackground;
 use Packitifotech\Laragdads\Ads\Layouts\BooksLayout;
+use Packitifotech\Laragdads\Ads\Layouts\CompanionLayout;
 use Packitifotech\Laragdads\Ads\Layouts\HeroLayout;
 use Packitifotech\Laragdads\Ads\Layouts\Layout;
+use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
 use Packitifotech\Laragdads\Ads\Layouts\ShowcaseLayout;
 use Packitifotech\Laragdads\Ads\Layouts\SplitLayout;
 use Packitifotech\Laragdads\Ads\Layouts\StackedLayout;
@@ -27,6 +30,8 @@ final class AdBuilder
 {
     /** @var array<string, Layout|class-string<Layout>> */
     private static array $layouts = [
+        'companion' => CompanionLayout::class,
+        'promo' => PromoLayout::class,
         'books' => BooksLayout::class,
         'split' => SplitLayout::class,
         'stacked' => StackedLayout::class,
@@ -35,6 +40,11 @@ final class AdBuilder
     ];
 
     private AdSpec $spec;
+
+    /** @var array{style:string,prompt:string}|null */
+    private ?array $lastAi = null;
+
+    private ?string $lastAiError = null;
 
     private function __construct()
     {
@@ -134,6 +144,120 @@ final class AdBuilder
         return $this;
     }
 
+    /**
+     * Stacked title, each line sized to fill the title column (promo layout): first line in the accent
+     * colour, second white, third a light tint. e.g. hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions').
+     */
+    public function hero(string ...$lines): self
+    {
+        $this->spec->hero = array_slice(array_values($lines), 0, 3);
+
+        return $this;
+    }
+
+    /**
+     * Info column (promo layout). Plain strings or [string, sizeScale]; **bold** words use the accent
+     * colour; '---' draws a divider.
+     *
+     * @param array<int, string|array{0:string,1:float}> $lines
+     */
+    public function details(array $lines): self
+    {
+        $this->spec->details = array_values($lines);
+
+        return $this;
+    }
+
+    /** Handwritten line on a brush stroke above the title (companion layout). */
+    public function tagline(?string $text): self
+    {
+        $this->spec->tagline = $text;
+
+        return $this;
+    }
+
+    /**
+     * Feature cards with a round icon (companion layout). Each item: [icon, title, subtitle] or [title, subtitle]
+     * (icons are then chosen in turn). Icons: see Support\Icons::names().
+     *
+     * @param array<int, array<int, string>> $items
+     */
+    public function highlights(array $items): self
+    {
+        $auto = ['book', 'doc', 'list', 'bulb', 'target', 'star'];
+        $this->spec->highlights = [];
+        foreach (array_values($items) as $i => $item) {
+            $this->spec->highlights[] = count($item) >= 3
+                ? [$item[0], $item[1], $item[2]]
+                : [$auto[$i % count($auto)], $item[0], $item[1] ?? ''];
+        }
+
+        return $this;
+    }
+
+    /** Handwritten slogan on a brush blob, one word per line (companion layout). */
+    public function slogan(string ...$words): self
+    {
+        $this->spec->slogan = array_values($words);
+
+        return $this;
+    }
+
+    /** A picture on a white background that melts into the bottom-right of the page (e.g. an AI-made study-desk illustration). */
+    public function artwork(GdImage|string|null $image): self
+    {
+        $this->spec->artwork = $image;
+
+        return $this;
+    }
+
+    /** Italic / handwritten font for the tagline and slogan (default: bundled Liberation Serif Bold Italic). */
+    public function scriptFont(?string $fontPath): self
+    {
+        $this->spec->scriptFontPath = $fontPath;
+
+        return $this;
+    }
+
+    /** Plaque such as ->tag('Std. X', 'ENGLISH MEDIUM'). */
+    public function tag(?string $title, ?string $subtitle = null): self
+    {
+        $this->spec->tag = $title === null ? null : [$title, (string) $subtitle];
+
+        return $this;
+    }
+
+    /** Round seal on the product, e.g. ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS']). */
+    public function seal(?array $lines, array|string|null $color = null): self
+    {
+        $this->spec->seal = $lines === null ? null : ['lines' => array_values($lines), 'color' => $color === null ? null : Support\Color::normalize($color)];
+
+        return $this;
+    }
+
+    public function footerLogo(GdImage|string|null $logo): self
+    {
+        $this->spec->footerLogo = $logo;
+
+        return $this;
+    }
+
+    /** 'solid' (default pill) or 'arrow' (light pill with a round arrow button). */
+    public function ctaStyle(string $style): self
+    {
+        $this->spec->ctaStyle = $style === 'arrow' ? 'arrow' : 'solid';
+
+        return $this;
+    }
+
+    /** Render the first cover as a 3D book (spine, page block, gloss) in the books/promo layouts. */
+    public function book3d(bool $enabled = true): self
+    {
+        $this->spec->book3d = $enabled;
+
+        return $this;
+    }
+
     /** Heading font; $bodyFont (optional) is used for the subheadline. */
     public function font(string $fontPath, ?string $bodyFont = null): self
     {
@@ -159,10 +283,75 @@ final class AdBuilder
         return $this;
     }
 
-    /** Put the image card on the 'left' (default) or 'right' in split layouts. */
+    /**
+     * Background art generated by the AI Horde (Stable Horde). The product, text, seal and buttons are still
+     * drawn by the layout, so the model never has to spell anything.
+     *
+     * @param string      $style  'education' (default: a scene that fits the ad copy), 'random' (any education scene),
+     *                            'abstract' (random art) or one of Ai\AiStyles::names()
+     * @param string|null $prompt your own prompt instead of the style's
+     * @param string|null $key    Horde API key; default: AIHORDE_API_KEY env var, then the anonymous key
+     * @param int|null    $seed   fixes the random style and the image
+     * @param bool        $strict throw if the Horde fails, instead of falling back to the built-in background
+     * @param bool        $hires  bigger source image (slower, sharper)
+     * @param string|null $topic  words that decide the education scene; default: the ad's own headline, title and details
+     */
+    public function aiBackground(string $style = 'education', ?string $prompt = null, ?string $key = null, ?int $seed = null, bool $strict = false, bool $hires = false, ?string $topic = null): self
+    {
+        $this->spec->ai = ['style' => $style, 'prompt' => $prompt, 'key' => $key, 'seed' => $seed, 'strict' => $strict, 'hires' => $hires, 'topic' => $topic];
+
+        return $this;
+    }
+
+    /** Why the last render() fell back from the AI background, or null. */
+    public function lastAiError(): ?string
+    {
+        return $this->lastAiError;
+    }
+
+    /** The AI style and prompt used by the last render() of this builder (null when AI was not used). */
+    public function lastAi(): ?array
+    {
+        return $this->lastAi;
+    }
+
+    /** Where the product sits: 'left' / 'right' in wide layouts, 'top' / 'bottom' in square, portrait and story. */
     public function imageSide(string $side): self
     {
-        $this->spec->imageSide = $side === 'right' ? 'right' : 'left';
+        $this->spec->imageSide = in_array($side, ['left', 'right', 'top', 'bottom'], true) ? $side : 'left';
+
+        return $this;
+    }
+
+    /** Text alignment: 'left', 'center' or 'right'. Default depends on the layout. */
+    public function textAlign(?string $align): self
+    {
+        $this->spec->textAlign = in_array($align, ['left', 'center', 'right'], true) ? $align : null;
+
+        return $this;
+    }
+
+    /** Soft translucent panel behind the text so it reads on photos. Automatic (on) with AI backgrounds. */
+    public function textPanel(?bool $enabled = true): self
+    {
+        $this->spec->textPanel = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Pick one of several arrangements (product side, text alignment, panel) so a batch of ads does not all look
+     * the same. The same $seed always gives the same arrangement.
+     */
+    public function variant(int $seed): self
+    {
+        $wide = $this->spec->aspectRatio() >= 1.3;
+        $options = $wide
+            ? [['left', 'left'], ['right', 'left'], ['left', 'center'], ['right', 'right'], ['right', 'center']]
+            : [['top', 'center'], ['bottom', 'center'], ['top', 'left'], ['bottom', 'left']];
+        [$side, $align] = $options[abs($seed) % count($options)];
+        $this->spec->imageSide = $side;
+        $this->spec->textAlign = $align;
 
         return $this;
     }
@@ -215,21 +404,59 @@ final class AdBuilder
     public function render(): GdImage
     {
         $spec = $this->spec;
-        if ($spec->headline === null && !$spec->hasImages()) {
+        if ($spec->headline === null && !$spec->hasImages() && $spec->hero === []) {
             throw new InvalidArgumentException('An ad needs at least a headline or an image.');
         }
 
         $spec = $this->splitTitle(clone $spec);
         $theme = $spec->theme ?? $this->resolveTheme();
         $heading = new Typography($spec->fontPath);
-        $body = $spec->bodyFontPath ? new Typography($spec->bodyFontPath) : $heading;
+        $bodyPath = $spec->bodyFontPath;
+        if ($bodyPath === null && realpath($spec->fontPath) === realpath(self::bundledFont('Bold'))) {
+            $bodyPath = self::bundledFont('');   // bold headlines over regular-weight body copy
+        }
+        $body = $bodyPath && $bodyPath !== $spec->fontPath ? new Typography($bodyPath) : $heading;
 
         $canvas = Canvas::create($spec->width, $spec->height, $theme->backgroundFrom);
         $layout = $this->resolveLayout();
 
         // Full-bleed hero layouts paint their own backdrop; everything else sits on the background.
-        if (!($layout instanceof HeroLayout && $spec->hasImages())) {
-            Backgrounds::paint($spec->background, $canvas, $this->specWithTheme($theme), $theme);
+        $this->lastAi = null;
+        $this->lastAiError = null;
+        $aiImage = null;
+        if ($spec->ai !== null && ($spec->ai['topic'] ?? null) === null) {
+            // Title words decide the scene; details and bullets list many subjects and would confuse it.
+            $spec->ai['topic'] = implode(' ', array_filter([$spec->headline, $spec->subheadline, ...$spec->hero]));
+        }
+        if ($spec->ai !== null && !($layout instanceof HeroLayout && $spec->hasImages())) {
+            try {
+                $result = AiBackground::fetch($spec->ai, $theme, $spec->width, $spec->height);
+                $aiImage = $result['image'];
+                $this->lastAi = ['style' => $result['style'], 'prompt' => $result['prompt']];
+            } catch (\Throwable $e) {
+                if ($spec->ai['strict']) {
+                    throw $e;
+                }
+                // Horde down, queue too long or key rejected: fall back to the built-in background.
+                $this->lastAiError = $e->getMessage();
+            }
+        }
+
+        if ($aiImage !== null) {
+            $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
+            // With a panel behind the text the photo can stay brighter and more visible.
+            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel, $layout instanceof PromoLayout ? 0.62 : null);   // promo text has no panel or shadow: darker base
+            $spec->textShadow = $spec->aspectRatio() >= 3.2 && !$layout instanceof PromoLayout;   // photo strips: light overlay + text shadow keep the scene visible
+            if ($layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2) {
+                Backgrounds::arcsDecor($canvas, $theme);   // the promo look (pale disc behind the book, gold arcs) over the AI art
+            }
+        } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
+            $style = $spec->background === 'auto' ? match (true) {
+                $layout instanceof CompanionLayout => 'paper',
+                $layout instanceof PromoLayout && $spec->aspectRatio() >= 2.2 => 'arcs',
+                default => 'auto',
+            } : $spec->background;
+            Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
         }
         $layout->render($canvas, $spec, $theme, $heading, $body);
 
@@ -353,6 +580,9 @@ final class AdBuilder
     private function resolveLayout(): Layout
     {
         $name = $this->spec->layout;
+        if ($name === 'auto' && $this->spec->hero !== []) {
+            $name = $this->spec->highlights !== [] ? 'companion' : 'promo';
+        }
         if ($name === 'auto') {
             $ratio = $this->spec->aspectRatio();
             $name = match (true) {
@@ -400,9 +630,13 @@ final class AdBuilder
     {
         $configured = self::config('default_font');
 
-        return is_string($configured) && $configured !== ''
-            ? $configured
-            : dirname(__DIR__, 2) . '/resources/fonts/DejaVuSans-Bold.ttf';
+        return is_string($configured) && $configured !== '' ? $configured : self::bundledFont('Bold');
+    }
+
+    /** Bundled DejaVu Sans: '' for regular, 'Bold' for bold. */
+    private static function bundledFont(string $weight): string
+    {
+        return dirname(__DIR__, 2) . '/resources/fonts/DejaVuSans' . ($weight !== '' ? '-' . $weight : '') . '.ttf';
     }
 
     /** Laravel config when a container is booted, otherwise the supplied default. */

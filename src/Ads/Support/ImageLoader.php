@@ -46,6 +46,30 @@ final class ImageLoader
         return self::$memo[$key] = self::applyExifOrientation($image, $source);
     }
 
+    /**
+     * Cut pixels off the edges, e.g. to drop a marketing banner from a catalogue image before using it:
+     *
+     *   AdBuilder::make()->images(ImageLoader::crop($path, top: 130))
+     */
+    public static function crop(string|GdImage $source, int $top = 0, int $right = 0, int $bottom = 0, int $left = 0): GdImage
+    {
+        $image = self::load($source);
+        $w = imagesx($image) - $left - $right;
+        $h = imagesy($image) - $top - $bottom;
+        if ($w < 1 || $h < 1 || min($top, $right, $bottom, $left) < 0) {
+            throw new InvalidArgumentException('crop() would leave an empty image.');
+        }
+
+        $out = imagecrop($image, ['x' => $left, 'y' => $top, 'width' => $w, 'height' => $h]);
+        if ($out === false) {
+            throw new InvalidArgumentException('crop() failed.');
+        }
+        imagealphablending($out, false);
+        imagesavealpha($out, true);
+
+        return $out;
+    }
+
     private static function applyExifOrientation(GdImage $image, string $path): GdImage
     {
         if (!function_exists('exif_read_data') || !preg_match('/\.jpe?g$/i', $path)) {

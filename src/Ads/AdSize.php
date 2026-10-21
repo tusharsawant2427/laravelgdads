@@ -21,6 +21,7 @@ enum AdSize: string
     case STORY = 'story';
     case LANDSCAPE = 'landscape';
     case STRIP = 'strip';
+    case WEBSITE_BANNER = 'website_banner';
 
     public function width(): int
     {
@@ -50,6 +51,7 @@ enum AdSize: string
             self::STORY => [1080, 1920],       // Stories / Reels / TikTok
             self::LANDSCAPE => [1200, 628],    // Facebook / LinkedIn / X link ads
             self::STRIP => [1200, 200],        // the original Laragdads banner
+            self::WEBSITE_BANNER => [2000, 661], // wide site/hero banner
         };
     }
 

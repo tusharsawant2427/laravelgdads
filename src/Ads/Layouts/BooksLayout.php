@@ -33,14 +33,15 @@ final class BooksLayout extends AbstractLayout
             $textH = $areaH;
             $align = 'left';
         } else {
+            $bottom = $spec->imageSide === 'bottom';
             $areaX = $m;
             $areaW = $w - 2 * $m;
-            $areaY = $m;
             $areaH = (int) round($h * ($h / $w > 1.6 ? 0.44 : 0.52)) - $m;
+            $areaY = $bottom ? $h - $m - $areaH : $m;
             $textX = $m + (int) round($m * 0.4);
             $textW = $w - 2 * $m - (int) round($m * 0.8);
-            $textY = $areaY + $areaH + (int) round($m * 0.6);
-            $textH = $h - $textY - $m;
+            $textY = $bottom ? $m : $areaY + $areaH + (int) round($m * 0.6);
+            $textH = $bottom ? $areaY - (int) round($m * 0.6) - $textY : $h - $textY - $m;
             $align = 'center';
         }
 
@@ -51,8 +52,8 @@ final class BooksLayout extends AbstractLayout
         if ($spec->logo !== null) {
             $logoH = max(24, (int) round($h * ($landscape ? 0.1 : 0.06)));
             $logoW = (int) round($textW * 0.4);
-            $this->logo($canvas, $spec, $landscape ? $textX : $m * 2, $landscape ? $textY : $m * 2, $logoW, $logoH, !$landscape);
-            if ($landscape) {
+            $this->logo($canvas, $spec, $landscape ? $textX : $m * 2, $landscape ? $textY : $m * 2, $logoW, $logoH, !$landscape && $spec->imageSide !== 'bottom');
+            if ($landscape || $spec->imageSide === 'bottom') {
                 $textY += $logoH + (int) round($m * 0.6);
                 $textH -= $logoH + (int) round($m * 0.6);
             }

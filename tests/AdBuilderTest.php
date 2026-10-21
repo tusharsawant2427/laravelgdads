@@ -4,12 +4,17 @@ namespace Packitifotech\Laragdads\Tests;
 
 use GdImage;
 use InvalidArgumentException;
+use Packitifotech\Laragdads\Ads\Ai\AiBackground;
+use Packitifotech\Laragdads\Ads\Ai\AiStyles;
 use Packitifotech\Laragdads\Ads\AdBuilder;
 use Packitifotech\Laragdads\Ads\AdSize;
 use Packitifotech\Laragdads\Ads\Backgrounds;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
+use Packitifotech\Laragdads\Ads\Support\ImageLoader;
+use Packitifotech\Laragdads\Ads\Support\Icons;
+use Packitifotech\Laragdads\Ads\Support\RichText;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Theme;
 use PHPUnit\Framework\TestCase;
@@ -23,12 +28,19 @@ final class AdBuilderTest extends TestCase
     {
         $this->dir = sys_get_temp_dir() . '/laragdads-' . uniqid();
         mkdir($this->dir);
+        AiBackground::useCacheDir($this->dir . '/ai-cache');
         $this->font = dirname(__DIR__) . '/resources/fonts/DejaVuSans-Bold.ttf';
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->dir . '/*') ?: []);
+        AiBackground::useGenerator(null);
+        AiBackground::useCacheDir(null);
+        foreach (glob($this->dir . '/ai-cache/*') ?: [] as $f) {
+            @unlink($f);
+        }
+        @rmdir($this->dir . '/ai-cache');
+        array_map('unlink', array_filter(glob($this->dir . '/*') ?: [], 'is_file'));
         @rmdir($this->dir);
     }
 
@@ -282,5 +294,311 @@ final class AdBuilderTest extends TestCase
 
         $theme = Theme::fromImages([$front, $this->dir . '/back.png']);
         $this->assertLessThan(40, Color::hueDistance($theme->primary, [140, 30, 150]));
+    }
+
+    public function test_promo_layout_renders_wide_and_falls_back_on_narrow_sizes(): void
+    {
+        $book = $this->packshot();
+        $ad = fn (AdSize $size) => AdBuilder::make()->size($size)->images($book)->cutout(false)->book3d()
+            ->hero('SSC 54', 'QUESTION PAPERS', 'Activity Sheets With Solutions')
+            ->details([['Model Papers for **SSC Board Exam**', 1.3], '---', 'History | Geography', '• Mock tests  • Solutions'])
+            ->seal(['INCLUDES', '2025', 'BOARD QUESTION PAPERS'])->tag('Std. X', 'ENGLISH MEDIUM')
+            ->cta('Ace your exam')->ctaStyle('arrow')->toPng();
+
+        foreach ([AdSize::WEBSITE_BANNER, AdSize::SQUARE, AdSize::STORY, AdSize::LEADERBOARD] as $size) {
+            $img = $this->decode($ad($size));
+            $this->assertSame([$size->width(), $size->height()], [imagesx($img), imagesy($img)], $size->value);
+        }
+    }
+
+    public function test_rich_text_wraps_and_marks_bold_words(): void
+    {
+        $rich = new RichText(new Typography($this->font), new Typography($this->font));
+        $lines = $rich->wrap('Model Papers for **SSC Board Exam** today', 22, 260);
+
+        $this->assertGreaterThan(1, count($lines));
+        $bold = array_filter(array_merge(...$lines), fn ($w) => $w[1]);
+        $this->assertSame(['SSC', 'Board', 'Exam'], array_values(array_map(fn ($w) => $w[0], $bold)));
+        foreach ($lines as $line) {
+            $this->assertLessThanOrEqual(260, $rich->width($line, 22));
+        }
+    }
+
+    public function test_crop_removes_edges_and_rejects_empty_results(): void
+    {
+        $cropped = ImageLoader::crop($this->packshot(), top: 10, left: 20, right: 30, bottom: 40);
+        $this->assertSame([150, 230], [imagesx($cropped), imagesy($cropped)]);
+
+        $this->expectException(InvalidArgumentException::class);
+        ImageLoader::crop($this->packshot(), top: 280);
+    }
+
+    public function test_product_running_off_the_image_edge_is_not_cut_out(): void
+    {
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(30, 20, 140, 260, [30, 90, 160]);           // runs off the bottom edge
+        $this->assertFalse(Cutout::hasLightBackground($c->image()));
+    }
+
+    public function test_book_mockup_adds_spine_and_pages(): void
+    {
+        $book = \Packitifotech\Laragdads\Ads\Support\BookMockup::make($this->packshot());
+        $this->assertGreaterThan(200, imagesx($book));
+        $this->assertGreaterThan(280, imagesy($book));
+    }
+
+    public function test_theme_follows_the_largest_colour_area_not_the_most_saturated_banner(): void
+    {
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(20, 16, 160, 240, [140, 40, 130]);            // big purple cover
+        $c->rect(60, 40, 90, 22, [235, 90, 20]);                // small, very saturated orange banner
+        $path = $this->dir . '/cover.png';
+        imagepng($c->image(), $path);
+
+        $theme = Theme::fromImage($path);
+        $this->assertLessThan(30, Color::hueDistance($theme->primary, [140, 40, 130]));
+        $this->assertLessThan(40, Color::hueDistance($theme->accent, [235, 90, 20]), 'the banner colour becomes the accent');
+    }
+
+    private function brightImage(int $w, int $h, array $rgb = [250, 250, 245]): GdImage
+    {
+        return Canvas::create($w, $h, $rgb)->image();
+    }
+
+    public function test_ai_background_is_requested_once_cached_and_painted_with_a_readable_scrim(): void
+    {
+        $calls = [];
+        AiBackground::useGenerator(function (string $prompt, int $w, int $h, array $o) use (&$calls) {
+            $calls[] = [$prompt, $w, $h];
+
+            return $this->brightImage($w, $h);     // a very bright model result: text would be unreadable on it
+        });
+
+        $ad = fn () => AdBuilder::make()->size(AdSize::LANDSCAPE)->headline('Hello world')->theme('#4c1d95')
+            ->aiBackground('watercolor', prompt: 'unit-test prompt ' . $this->dir)->textPanel(false);
+        $img = $this->decode($ad()->toPng());
+        $ad()->toPng();
+
+        $this->assertCount(1, $calls, 'second render uses the disk cache');
+        $this->assertSame([768, 448], [$calls[0][1], $calls[0][2]], 'landscape source size');
+
+        [$r, $g, $b] = $this->rgb($img, 5, 5);
+        $this->assertLessThan(150, ($r + $g + $b) / 3, 'scrim darkens a bright AI image so white text stays readable');
+    }
+
+    public function test_ai_failure_falls_back_unless_strict(): void
+    {
+        AiBackground::useGenerator(fn () => throw new \RuntimeException('horde down'));
+        $builder = AdBuilder::make()->size(300, 250)->headline('Hi')->aiBackground('random', prompt: 'fail ' . $this->dir);
+
+        $this->assertStringStartsWith("\x89PNG", $builder->toPng());
+        $this->assertNull($builder->lastAi());
+        $this->assertSame('horde down', $builder->lastAiError());
+
+        $this->expectExceptionMessage('horde down');
+        AdBuilder::make()->size(300, 250)->headline('Hi')->aiBackground('random', prompt: 'fail2 ' . $this->dir, strict: true)->render();
+    }
+
+    public function test_ai_styles_are_random_but_reproducible_and_prompts_ask_for_no_text(): void
+    {
+        $this->assertSame(AiStyles::resolve('random', 3), AiStyles::resolve('random', 3));
+        $this->assertNotSame(AiStyles::resolve('random', 0), AiStyles::resolve('random', 1));
+        foreach (AiStyles::names() as $style) {
+            $prompt = AiStyles::prompt($style, ['deep purple', 'vivid orange']);
+            $this->assertStringContainsString('deep purple', $prompt);
+            $this->assertStringContainsString('no text', $prompt);
+        }
+        $this->assertSame([1152, 192], AiBackground::dimensions(6.0));
+        $this->assertSame([1024, 256], AiBackground::dimensions(4.0));
+        $this->assertSame([960, 320], AiBackground::dimensions(3.03));
+        $this->assertSame([768, 448], AiBackground::dimensions(1.9));
+        $this->assertSame([448, 768], AiBackground::dimensions(0.56));
+        $this->assertSame([640, 640], AiBackground::dimensions(1.0));
+        $this->assertSame('deep purple', Color::name([70, 20, 110]));
+    }
+
+    public function test_horde_sizes_are_snapped_to_multiples_of_64(): void
+    {
+        $this->assertSame(512, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(500));
+        $this->assertSame(64, \Packitifotech\Laragdads\Ads\Ai\HordeClient::snap(10));
+    }
+
+    public function test_education_scenes_follow_the_ad_topic(): void
+    {
+        $this->assertContains(AiStyles::forTopic('MHT-CET Physics: 28 years', 0), ['physics-concept', 'science-lab']);
+        $this->assertContains(AiStyles::forTopic('Chemistry notes', 1), ['chemistry-lab', 'science-lab']);
+        $this->assertContains(AiStyles::forTopic('SSC 54 QUESTION PAPERS', 2), ['exam-hall', 'classroom', 'study-desk']);
+        $this->assertContains(AiStyles::forTopic('something unrelated', 3), AiStyles::educationNames());
+        $this->assertContains(AiStyles::resolve('education', 0, 'Biology'), ['biology-lab', 'library']);
+        $this->assertContains(AiStyles::resolve('random', 4), AiStyles::educationNames());
+        $this->assertContains(AiStyles::resolve('abstract', 4), AiStyles::artNames());
+        $this->assertSame('watercolor', AiStyles::resolve('watercolor'));
+        $this->assertStringContainsString('no people', AiStyles::prompt('classroom', ['deep blue']));
+        foreach (AiStyles::educationNames() as $scene) {
+            $wide = AiStyles::prompt($scene, ['deep purple'], true);
+            $this->assertStringContainsString('wide panoramic', $wide, $scene);
+            $this->assertStringContainsString('no text', $wide, $scene);
+        }
+    }
+
+    public function test_builder_derives_the_scene_from_headline_and_hero_not_the_detail_list(): void
+    {
+        $seen = [];
+        AiBackground::useGenerator(function (string $prompt, int $w, int $h) use (&$seen) {
+            $seen[] = $prompt;
+
+            return $this->brightImage($w, $h, [60, 40, 90]);
+        });
+
+        AdBuilder::make()->size(AdSize::LANDSCAPE)->theme('#4c1d95')->hero('SSC 54', 'QUESTION PAPERS')
+            ->details(['Mathematics Part - I & II', 'Physics and Chemistry'])
+            ->aiBackground('education', seed: 0, topic: null)->toPng();
+
+        $this->assertMatchesRegularExpression('/exam|classroom|desk/', $seen[0]);
+        $this->assertDoesNotMatchRegularExpression('/geometry|compass|laboratory/', $seen[0]);
+    }
+
+    public function test_variants_change_the_arrangement_and_are_reproducible(): void
+    {
+        $book = $this->packshot();
+        $render = fn (int $v) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($book)
+            ->headline('MHT-CET Physics')->subheadline('Previous solved papers')->cta('Buy now')->variant($v)->toPng();
+
+        $this->assertSame($render(0), $render(0));
+        $this->assertNotSame($render(0), $render(1), 'product side differs');
+        $this->assertNotSame($render(0), $render(2), 'text alignment differs');
+
+        $portrait = fn (int $v) => AdBuilder::make()->size(AdSize::SQUARE)->layout('books')->images($book)
+            ->headline('MHT-CET Physics')->cta('Buy now')->variant($v)->toPng();
+        $this->assertNotSame($portrait(0), $portrait(1), 'product on top vs bottom');
+    }
+
+    public function test_text_panel_is_automatic_with_ai_backgrounds_and_can_be_turned_off(): void
+    {
+        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [90, 120, 80]));
+        $ad = fn (?bool $panel) => AdBuilder::make()->size(AdSize::LANDSCAPE)->layout('books')->images($this->packshot())
+            ->headline('Hello world')->cta('Go')->aiBackground('classroom', prompt: 'panel test ' . $this->dir)->textPanel($panel)->toPng();
+
+        $this->assertNotSame($ad(true), $ad(false));
+        $this->assertSame($ad(null), $ad(true), 'null means automatic: on with AI backgrounds');
+    }
+
+    public function test_strip_uses_the_whole_uncropped_cover_and_puts_the_button_beside_the_text(): void
+    {
+        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [60, 80, 120]));
+        $cover = $this->packshot();
+        $ad = fn (bool $cta) => AdBuilder::make()->size(AdSize::STRIP)->images($cover)->imageFit('contain')->cutout(false)
+            ->headline('SSC Board Exam Model Papers')->subheadline('Latest paper pattern 2025-26')
+            ->aiBackground('exam-hall', prompt: 'strip test ' . $this->dir);
+
+        $img = $this->decode($ad(true)->cta('Buy now')->toPng());
+        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
+
+        // The cover card sits at the left edge, the button (accent colour) at the right edge, text between.
+        $accent = Theme::fromImage($cover)->accent;
+        $hasAccentAtRight = false;
+        for ($x = 1000; $x < 1190 && !$hasAccentAtRight; $x += 3) {
+            for ($y = 60; $y < 140; $y += 3) {
+                $hasAccentAtRight = $hasAccentAtRight || Color::toHex($this->rgb($img, $x, $y)) === Color::toHex($accent);
+            }
+        }
+        $this->assertTrue($hasAccentAtRight, 'CTA pill on the right');
+        $this->assertNotSame($ad(true)->cta('Buy now')->toPng(), $ad(true)->cta(null)->toPng());
+    }
+
+    public function test_promo_strip_has_the_ad_elements_and_uses_the_whole_cover(): void
+    {
+        $cover = $this->packshot();
+        $strip = fn () => AdBuilder::make()->size(AdSize::STRIP)->images($cover)->cutout(false)
+            ->hero('SSC 54', 'QUESTION PAPERS')
+            ->details([['Model Papers for **SSC Board Exam**', 1.2], 'Latest **Maharashtra Board** pattern'])
+            ->seal(['INCLUDES', '2025', 'BOARD PAPERS'])->tag('Std. X', 'ENGLISH MEDIUM')
+            ->cta('Get the book')->ctaStyle('arrow');
+
+        $img = $this->decode($strip()->toPng());
+        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
+
+        $this->assertNotSame($strip()->toPng(), $strip()->seal(null)->toPng(), 'seal is drawn');
+        $this->assertNotSame($strip()->toPng(), $strip()->tag(null)->toPng(), 'plaque is drawn');
+        $this->assertNotSame($strip()->toPng(), $strip()->cta(null)->toPng(), 'button is drawn');
+
+        // The arrow pill is a light shape in the lower right.
+        [$r, $g, $b] = $this->rgb($img, 880, 135);
+        $this->assertGreaterThan(220, min($r, $g, $b));
+    }
+
+    public function test_promo_strip_works_over_an_ai_background(): void
+    {
+        AiBackground::useGenerator(fn (string $p, int $w, int $h) => $this->brightImage($w, $h, [40, 70, 120]));
+        $img = $this->decode(AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->cutout(false)
+            ->hero('MHT-CET', 'PHYSICS')->details(['**28 Years** Papers'])->cta('Buy')->ctaStyle('arrow')
+            ->aiBackground('blueprint-science', prompt: 'promo strip ' . $this->dir)->toPng());
+
+        $this->assertSame([1200, 200], [imagesx($img), imagesy($img)]);
+    }
+
+    public function test_very_short_banners_still_fall_back_gracefully_for_promo_copy(): void
+    {
+        $img = $this->decode(AdBuilder::make()->size(AdSize::LEADERBOARD)->images($this->packshot())
+            ->hero('SSC 54', 'QUESTION PAPERS')->cta('Buy')->toPng());
+
+        $this->assertSame([728, 90], [imagesx($img), imagesy($img)]);
+    }
+
+    private function companion(AdSize $size): AdBuilder
+    {
+        return AdBuilder::make()->size($size)->images($this->packshot())->logo($this->packshot('logo.png'))
+            ->tagline('Your Complete Practice Companion for')->hero('MHT-CET', 'PHYSICS')
+            ->highlights([['book', '28 YEARS', 'Previous Solved Papers'], ['Chapter-wise', 'Organisation'], ['4100+', 'MCQs'], ['bulb', 'Quick Review', 'Last-minute prep']])
+            ->slogan('Concepts', 'Practice', 'Confidence');
+    }
+
+    public function test_companion_layout_renders_wide_strip_and_falls_back_when_narrow(): void
+    {
+        foreach ([AdSize::WEBSITE_BANNER, AdSize::STRIP, AdSize::SQUARE, AdSize::LEADERBOARD] as $size) {
+            $img = $this->decode($this->companion($size)->toPng());
+            $this->assertSame([$size->width(), $size->height()], [imagesx($img), imagesy($img)], $size->value);
+        }
+    }
+
+    public function test_companion_elements_are_all_drawn_on_a_light_page(): void
+    {
+        $base = $this->companion(AdSize::WEBSITE_BANNER)->toPng();
+        $this->assertNotSame($base, $this->companion(AdSize::WEBSITE_BANNER)->tagline(null)->toPng());
+        $this->assertNotSame($base, $this->companion(AdSize::WEBSITE_BANNER)->highlights([])->toPng());
+        $this->assertNotSame($base, $this->companion(AdSize::WEBSITE_BANNER)->slogan()->toPng());
+
+        $img = $this->decode($base);
+        [$r, $g, $b] = $this->rgb($img, 1100, 640);   // the page itself is light paper
+        $this->assertGreaterThan(220, min($r, $g, $b));
+        $this->assertSame($base, $this->companion(AdSize::WEBSITE_BANNER)->toPng(), 'deterministic');
+    }
+
+    public function test_every_icon_draws_something_and_unknown_icons_are_rejected(): void
+    {
+        foreach (Icons::names() as $name) {
+            $c = Canvas::create(100, 100, [255, 255, 255]);
+            Icons::draw($c, $name, 50, 50, 80, [0, 0, 0]);
+            $dark = 0;
+            for ($y = 0; $y < 100; $y += 2) {
+                for ($x = 0; $x < 100; $x += 2) {
+                    $dark += ($this->rgb($c->image(), $x, $y)[0] < 200) ? 1 : 0;
+                }
+            }
+            $this->assertGreaterThan(15, $dark, $name);
+        }
+        $this->expectException(InvalidArgumentException::class);
+        Icons::draw(Canvas::create(10, 10), 'nope', 5, 5, 8, [0, 0, 0]);
+    }
+
+    public function test_multiply_blends_white_backgrounds_into_the_page(): void
+    {
+        $page = Canvas::create(100, 100, [240, 230, 250]);
+        $art = Canvas::create(100, 100, [255, 255, 255]);
+        $art->rect(40, 40, 20, 20, [100, 100, 100]);
+        $page->multiply($art->image(), 0, 0, 100, 100, 0);
+
+        $this->assertSame([240, 230, 250], $this->rgb($page->image(), 5, 5), 'white leaves the page unchanged');
+        $this->assertLessThan(120, $this->rgb($page->image(), 50, 50)[0], 'dark artwork shows through');
     }
 }
