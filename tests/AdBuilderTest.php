@@ -14,6 +14,7 @@ use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Icons;
+use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Support\RichText;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Theme;
@@ -622,5 +623,70 @@ final class AdBuilderTest extends TestCase
         }
         $orange = Theme::fromColors('#7c3aed', null, '#f08a3c')->gold();
         $this->assertLessThan(15, Color::hueDistance($orange, [240, 138, 60]));
+    }
+
+    public function test_there_are_twenty_templates_and_each_paints_a_distinct_light_background(): void
+    {
+        $names = TemplateLibrary::names();
+        $this->assertCount(20, $names);
+
+        $seen = [];
+        foreach ($names as $name) {
+            $c = Canvas::create(1000, 200, [255, 255, 255]);
+            TemplateLibrary::paint($name, $c);
+            $ink = TemplateLibrary::palette($name)['ink'];
+            foreach ([[300, 100], [500, 60], [500, 100], [500, 150], [700, 100]] as [$px, $py]) {
+                $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable on the middle");
+            }
+
+            ob_start();
+            imagepng($c->image());
+            $seen[md5((string) ob_get_clean())] = true;
+        }
+        $this->assertCount(20, $seen, 'every template looks different');
+    }
+
+    public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void
+    {
+        $cover = $this->packshot();
+        foreach (['sky-atom', 'doodle-grid', 'prism-rainbow'] as $name) {
+            foreach ([[1200, 200], [2000, 256]] as [$sw, $sh]) {
+                $img = $this->decode(AdBuilder::make()->size($sw, $sh)->images($cover)->template($name)
+                    ->headline('MHT-CET Physics')->subheadline('Solved papers')->cta('Buy now')->badge('4100+')->toPng());
+                $this->assertSame([$sw, $sh], [imagesx($img), imagesy($img)], "{$name} {$sw}x{$sh}");
+            }
+            ['ink' => $ink, 'accent' => $accent, 'zone' => $zone] = TemplateLibrary::palette($name);
+            $this->assertCount(3, $ink);
+            $this->assertCount(3, $accent);
+            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 200);
+            $this->assertGreaterThan($x0 + 300, $x1, 'the free zone is wide enough for content');
+        }
+    }
+
+    public function test_templates_reject_unknown_names_and_narrow_canvases(): void
+    {
+        try {
+            AdBuilder::make()->template('nope');
+            $this->fail('unknown template accepted');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('Unknown template', $e->getMessage());
+        }
+
+        $this->expectException(InvalidArgumentException::class);
+        AdBuilder::make()->size(AdSize::SQUARE)->headline('Hi')->template('sky-atom')->render();
+    }
+
+    public function test_template_text_uses_the_template_ink_and_button_uses_its_accent(): void
+    {
+        $img = $this->decode(AdBuilder::make()->size(AdSize::STRIP)->template('aqua-hex')->headline('Hello')->cta('Buy now')->toPng());
+        $accent = TemplateLibrary::palette('aqua-hex')['accent'];
+
+        $found = false;
+        for ($x = 900; $x < 1190 && !$found; $x += 3) {
+            for ($y = 70; $y < 130; $y += 3) {
+                $found = $found || Color::toHex($this->rgb($img, $x, $y)) === Color::toHex($accent);
+            }
+        }
+        $this->assertTrue($found, 'the template accent colours the button');
     }
 }

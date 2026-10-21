@@ -411,6 +411,44 @@ final class Canvas
     }
 
     /**
+     * Soft, feathered shapes of one colour (watercolour washes). $draw paints at 1/$shrink scale; the colours it asks for
+     * are only used for their opacity. The result is blurred, enlarged smoothly and used as the transparency of $tint.
+     * (GD's blur filter leaves the alpha channel alone, so the blur is done on an opaque mask instead.)
+     *
+     * @param callable(GdImage, int, callable): void $draw receives (mask, shrink, fn(array $rgb, float $opacity): int)
+     */
+    public function soft(int $x, int $y, int $w, int $h, callable $draw, int $shrink = 4, int $blur = 2, array $tint = [128, 128, 128]): self
+    {
+        $sw = max(2, intdiv($w, $shrink));
+        $sh = max(2, intdiv($h, $shrink));
+        $mask = imagecreatetruecolor($sw, $sh);
+        imagefill($mask, 0, 0, imagecolorallocate($mask, 0, 0, 0));
+        $draw($mask, $shrink, function (array $c, float $a = 1.0) use ($mask): int {
+            $g = (int) round(255 * max(0.0, min(1.0, $a)));
+
+            return imagecolorallocate($mask, $g, $g, $g);
+        });
+        for ($i = 0; $i < $blur; $i++) {
+            imagefilter($mask, IMG_FILTER_GAUSSIAN_BLUR);
+        }
+        $big = imagescale($mask, max(1, $w), max(1, $h), IMG_BILINEAR_FIXED);
+
+        $layer = $this->layer($w, $h);
+        imagealphablending($layer, false);
+        for ($py = 0; $py < $h; $py++) {
+            for ($px = 0; $px < $w; $px++) {
+                $g = imagecolorat($big, $px, $py) & 0xFF;
+                if ($g > 1) {
+                    imagesetpixel($layer, $px, $py, imagecolorallocatealpha($layer, $tint[0], $tint[1], $tint[2], 127 - (int) ($g * 127 / 255)));
+                }
+            }
+        }
+        $this->compose($layer, $x, $y);
+
+        return $this;
+    }
+
+    /**
      * Organic filled blob (soft, irregular ellipse): the paint-splash shapes behind products and slogans.
      */
     public function blob(int $cx, int $cy, int $rx, int $ry, array $color, float $opacity = 1.0, int $seed = 1, float $wobble = 0.1): self

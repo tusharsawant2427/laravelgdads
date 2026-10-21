@@ -11,6 +11,8 @@ use Packitifotech\Laragdads\Ads\Layouts\HeroLayout;
 use Packitifotech\Laragdads\Ads\Layouts\Layout;
 use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
 use Packitifotech\Laragdads\Ads\Layouts\ShowcaseLayout;
+use Packitifotech\Laragdads\Ads\Layouts\TemplateLayout;
+use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Layouts\SplitLayout;
 use Packitifotech\Laragdads\Ads\Layouts\StackedLayout;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
@@ -164,6 +166,20 @@ final class AdBuilder
     public function details(array $lines): self
     {
         $this->spec->details = array_values($lines);
+
+        return $this;
+    }
+
+    /**
+     * Use one of the illustrated banner templates (see Templates\TemplateLibrary::names()): a light, hand-drawn style
+     * background with the product, headline and button in its open middle. Needs a wide size (3.6:1 or wider).
+     */
+    public function template(?string $name): self
+    {
+        if ($name !== null) {
+            TemplateLibrary::palette($name);   // validates the name
+        }
+        $this->spec->template = $name;
 
         return $this;
     }
@@ -410,6 +426,11 @@ final class AdBuilder
 
         $spec = $this->splitTitle(clone $spec);
         $theme = $spec->theme ?? $this->resolveTheme();
+        if ($spec->template !== null) {
+            // Text and button colours come from the template, not from the cover.
+            ['ink' => $ink, 'accent' => $accent] = TemplateLibrary::palette($spec->template);
+            $theme = new Theme($accent, $accent, $accent, $theme->backgroundFrom, $theme->backgroundTo, $ink);
+        }
         $heading = new Typography($spec->fontPath);
         $bodyPath = $spec->bodyFontPath;
         if ($bodyPath === null && realpath($spec->fontPath) === realpath(self::bundledFont('Bold'))) {
@@ -428,7 +449,7 @@ final class AdBuilder
             // Title words decide the scene; details and bullets list many subjects and would confuse it.
             $spec->ai['topic'] = implode(' ', array_filter([$spec->headline, $spec->subheadline, ...$spec->hero]));
         }
-        if ($spec->ai !== null && !($layout instanceof HeroLayout && $spec->hasImages())) {
+        if ($spec->ai !== null && $spec->template === null && !($layout instanceof HeroLayout && $spec->hasImages())) {
             try {
                 $result = AiBackground::fetch($spec->ai, $theme, $spec->width, $spec->height);
                 $aiImage = $result['image'];
@@ -442,7 +463,9 @@ final class AdBuilder
             }
         }
 
-        if ($aiImage !== null) {
+        if ($spec->template !== null) {
+            TemplateLibrary::paint($spec->template, $canvas, $spec->scriptFontPath ? new Typography($spec->scriptFontPath) : null);
+        } elseif ($aiImage !== null) {
             $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
             // With a panel behind the text the photo can stay brighter and more visible.
             AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel, $layout instanceof PromoLayout ? 0.62 : null);   // promo text has no panel or shadow: darker base
@@ -579,6 +602,14 @@ final class AdBuilder
 
     private function resolveLayout(): Layout
     {
+        if ($this->spec->template !== null) {
+            if ($this->spec->aspectRatio() < 3.6) {
+                throw new InvalidArgumentException("Template [{$this->spec->template}] needs a wide size (3.6:1 or wider), got {$this->spec->width}x{$this->spec->height}.");
+            }
+
+            return new TemplateLayout($this->spec->template);
+        }
+
         $name = $this->spec->layout;
         if ($name === 'auto' && $this->spec->hero !== []) {
             $name = $this->spec->highlights !== [] ? 'companion' : 'promo';

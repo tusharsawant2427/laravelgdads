@@ -50,6 +50,9 @@ final class AdSpec
 
     public ?string $scriptFontPath = null;
 
+    /** Name of an illustrated background template (Templates\\TemplateLibrary). */
+    public ?string $template = null;
+
     public GdImage|string|null $footerLogo = null;
     public string $ctaStyle = 'solid';
     public bool $book3d = false;

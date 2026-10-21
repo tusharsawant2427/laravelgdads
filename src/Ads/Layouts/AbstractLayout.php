@@ -5,6 +5,7 @@ namespace Packitifotech\Laragdads\Ads\Layouts;
 use GdImage;
 use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
+use Packitifotech\Laragdads\Ads\Support\BookMockup;
 use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
@@ -255,6 +256,26 @@ abstract class AbstractLayout implements Layout
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /** Place the product: a packshot becomes a 3D book (white backdrop removed), anything else is shown whole in a card. */
+    protected function book(Canvas $canvas, AdSpec $spec, int $x, int $y, int $w, int $h, float $angle): void
+    {
+        if (!$spec->hasImages()) {
+            return;
+        }
+        $image = $spec->images[0];
+        $cutout = $spec->cutout ?? $this->isPackshot($image);
+        if ($cutout) {
+            $cover = BookMockup::make($this->prepare($image, $spec));
+            $canvas->shadow($x + (int) ($w * 0.1), $y + (int) ($h * 0.93), (int) ($w * 0.8), (int) ($h * 0.03), (int) ($h * 0.015), (int) ($h * 0.05), 0.4, 0);
+            $canvas->sprite($cover, $x + intdiv($w, 2), $y + intdiv($h, 2), $w, $h, $angle);
+
+            return;
+        }
+        $fitted = clone $spec;
+        $fitted->imageFit = 'contain';
+        $this->card($canvas, $fitted, $image, $x, $y, $w, $h, (int) round(min($w, $h) * 0.04));
     }
 
     protected function margin(AdSpec $spec): int

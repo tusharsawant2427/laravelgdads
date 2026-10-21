@@ -61,6 +61,30 @@ Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
 Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
 Everything is drawn with GD: there is no AI image generation and no network call.
 
+## Illustrated templates (20 light, hand-drawn style banners)
+
+Ready-made light backgrounds with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
+patterns, and physics props: atom, bulb, prism, magnet, Newton's cradle, graphs, stacked books, notebook, plant, planet).
+The product, headline and button go in the open middle. Everything is drawn with GD, no assets and no network.
+
+```php
+use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
+
+TemplateLibrary::names();   // sky-atom, peach-leaves, lavender-bubbles, aqua-hex, yellow-brush, lavender-books, doodle-grid,
+                            // coral-waves, green-leaves, blue-waves-atom, books-emc2, lavender-notebook, cradle-blue,
+                            // peach-physics, magnet-purple, green-graph, bulb-leaves, aqua-atom, prism-rainbow, yellow-projectile
+
+Laragdads::ad()->size(AdSize::STRIP)->images($cover)->template('lavender-books')
+    ->headline('MHT-CET Physics: 28 Years Previous Solved Papers')->subheadline('Chapter-wise papers from 1999 to 2026')
+    ->cta('Buy now')->save('ads/strip.png');
+
+// Just the background, any size 3.6:1 or wider (decorations hug the edges and scale with the height):
+TemplateLibrary::paint('prism-rainbow', Canvas::create(2000, 256));
+```
+
+Text and button colours come from the template. Below 7:1 (such as 1200x200) the secondary doodles are dropped so the
+content fits. `php examples/templates.php` writes every template as a background and as a complete strip.
+
 ## Companion layout (light, illustrated)
 
 A friendly light-page design: handwritten tagline on a yellow brush stroke, a huge sticker-style title with a dark
