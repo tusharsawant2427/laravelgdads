@@ -17,7 +17,7 @@ use GdImage;
  */
 final class Cutout
 {
-    private const MAX_SIDE = 1400;
+    private const MAX_SIDE = 1200;
 
     /**
      * Does the product float on a white studio background? Every edge must be (almost) entirely near-white:
@@ -71,15 +71,15 @@ final class Cutout
         $white = 255 - max(0, $tolerance);
 
         // Pass 1: border-connected near-white -> transparent.
-        $state = new \SplFixedArray($w * $h); // 0 untouched, 1 background, 2 shadow
+        $state = str_repeat("\0", $w * $h); // one byte per pixel: 0 untouched, 1 background, 2 shadow, 3 fringe
         $queue = new \SplQueue();
         $isWhite = static fn (int $c): bool => min(($c >> 16) & 0xFF, ($c >> 8) & 0xFF, $c & 0xFF) >= $white
             && ((($c >> 24) & 0x7F) < 64);
 
         $seed = function (int $x, int $y) use (&$state, $queue, $img, $w, $isWhite) {
             $i = $y * $w + $x;
-            if (!$state[$i] && $isWhite(imagecolorat($img, $x, $y))) {
-                $state[$i] = 1;
+            if ($state[$i] === "\0" && $isWhite(imagecolorat($img, $x, $y))) {
+                $state[$i] = "\1";
                 $queue->enqueue($i);
             }
         };
@@ -104,7 +104,7 @@ final class Cutout
         $run($w - 1, 0, 0, 1, $h);
         $run(0, $h - 1, 0, -1, $h);
         $run($w - 1, $h - 1, 0, -1, $h);
-        self::flood($state, $queue, $img, $w, $h, static fn ($c) => $isWhite($c), 1);
+        self::flood($state, $queue, $img, $w, $h, static fn ($c) => $isWhite($c), "\1");
 
         // Pass 2: low-chroma greys touching the background -> translucent black shadow.
         // Strictly darker than the background white: never leak into white parts of the product itself.
@@ -116,20 +116,26 @@ final class Cutout
             return max($r, $g, $b) - min($r, $g, $b) <= 14 && min($r, $g, $b) >= 120 && max($r, $g, $b) < $white;
         };
         for ($i = 0, $n = $w * $h; $i < $n; $i++) {
-            if ($state[$i] === 1) {
+            if ($state[$i] !== "\1") {
+                continue;
+            }
+            // only background pixels that touch something else can grow the shadow region
+            $x = $i % $w;
+            if (($x > 0 && $state[$i - 1] === "\0") || ($x < $w - 1 && $state[$i + 1] === "\0")
+                || ($i >= $w && $state[$i - $w] === "\0") || ($i < $n - $w && $state[$i + $w] === "\0")) {
                 $queue->enqueue($i);
             }
         }
-        self::flood($state, $queue, $img, $w, $h, $isShadow, 2);
+        self::flood($state, $queue, $img, $w, $h, $isShadow, "\2");
 
         // Trim the one-pixel light fringe left where the product's anti-aliased edge met the white backdrop.
         for ($y = 0; $y < $h; $y++) {
             for ($x = 0; $x < $w; $x++) {
-                if ($state[$y * $w + $x] !== null && $state[$y * $w + $x] !== 0) {
+                if ($state[$y * $w + $x] !== "\0") {
                     continue;
                 }
-                $touchesBackdrop = ($x > 0 && $state[$y * $w + $x - 1] === 1) || ($x < $w - 1 && $state[$y * $w + $x + 1] === 1)
-                    || ($y > 0 && $state[($y - 1) * $w + $x] === 1) || ($y < $h - 1 && $state[($y + 1) * $w + $x] === 1);
+                $touchesBackdrop = ($x > 0 && $state[$y * $w + $x - 1] === "\1") || ($x < $w - 1 && $state[$y * $w + $x + 1] === "\1")
+                    || ($y > 0 && $state[($y - 1) * $w + $x] === "\1") || ($y < $h - 1 && $state[($y + 1) * $w + $x] === "\1");
                 if (!$touchesBackdrop) {
                     continue;
                 }
@@ -138,7 +144,7 @@ final class Cutout
                 $g = ($c >> 8) & 255;
                 $b = $c & 255;
                 if (min($r, $g, $b) >= 205 && max($r, $g, $b) - min($r, $g, $b) <= 40) {
-                    $state[$y * $w + $x] = 3;   // 3: fringe, cleared below
+                    $state[$y * $w + $x] = "\3";   // fringe, cleared below
                 }
             }
         }
@@ -149,11 +155,11 @@ final class Cutout
         for ($y = 0; $y < $h; $y++) {
             for ($x = 0; $x < $w; $x++) {
                 $s = $state[$y * $w + $x];
-                if ($s === 1 || $s === 3) {
+                if ($s === "\1" || $s === "\3") {
                     imagesetpixel($img, $x, $y, $clear);
                     continue;
                 }
-                if ($s === 2) {
+                if ($s === "\2") {
                     $c = imagecolorat($img, $x, $y);
                     $grey = min(($c >> 16) & 0xFF, ($c >> 8) & 0xFF, $c & 0xFF);
                     $opacity = max(0.0, min(0.85, (255 - $grey) / 255 * 1.25));
@@ -184,7 +190,7 @@ final class Cutout
         return $cropped;
     }
 
-    private static function flood(\SplFixedArray $state, \SplQueue $queue, GdImage $img, int $w, int $h, callable $accept, int $mark): void
+    private static function flood(string &$state, \SplQueue $queue, GdImage $img, int $w, int $h, callable $accept, string $mark): void
     {
         while (!$queue->isEmpty()) {
             $i = $queue->dequeue();
@@ -195,7 +201,7 @@ final class Cutout
                     continue;
                 }
                 $j = $ny * $w + $nx;
-                if (!$state[$j] && $accept(imagecolorat($img, $nx, $ny))) {
+                if ($state[$j] === "\0" && $accept(imagecolorat($img, $nx, $ny))) {
                     $state[$j] = $mark;
                     $queue->enqueue($j);
                 }

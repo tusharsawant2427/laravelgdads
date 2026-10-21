@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+### Fixed
+- "Allowed memory size exhausted" in `Cutout` when generating many ads from large cover photos: the cut-out keeps one byte per
+  pixel instead of a PHP array entry (about 16 bytes), only queues background pixels that border something else, and decoded
+  images are limited to 2000 px on the longest side with a smaller cache. Output is pixel-identical; peak memory for a cover
+  cut-out fell from about 10 MB to 1.7 MB.
+
 ## 1.0.0
 
 First tagged release.

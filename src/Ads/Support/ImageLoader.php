@@ -36,10 +36,11 @@ final class ImageLoader
         if (!imageistruecolor($image)) {
             imagepalettetotruecolor($image);
         }
+        $image = self::limitSize($image);
         imagealphablending($image, false);
         imagesavealpha($image, true);
 
-        if (count(self::$memo) >= 6) {
+        if (count(self::$memo) >= 2) {
             array_shift(self::$memo);
         }
 
@@ -68,6 +69,22 @@ final class ImageLoader
         imagesavealpha($out, true);
 
         return $out;
+    }
+
+    /** Longest side kept in memory: catalogue photos are often 4000+ px, far more than any ad shows, and cost ~4 bytes per pixel. */
+    private const MAX_SIDE = 2000;
+
+    private static function limitSize(GdImage $image): GdImage
+    {
+        $w = imagesx($image);
+        $h = imagesy($image);
+        if (max($w, $h) <= self::MAX_SIDE) {
+            return $image;
+        }
+        $scale = self::MAX_SIDE / max($w, $h);
+        $small = imagescale($image, max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale)), IMG_BICUBIC);
+
+        return $small === false ? $image : $small;
     }
 
     private static function applyExifOrientation(GdImage $image, string $path): GdImage
