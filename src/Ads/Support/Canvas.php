@@ -12,6 +12,26 @@ use GdImage;
  */
 final class Canvas
 {
+    /** @var (callable(string,int,int,int,int):void)|null */
+    private static $observer = null;
+
+    /**
+     * Debug hook: the callback receives (kind, x, y, width, height) for every region drawn by draw(), rect(), text() and circle().
+     * Used by TemplateLibrary::artwork() to measure where a template's illustrations are. Pass null to stop observing.
+     *
+     * @param (callable(string,int,int,int,int):void)|null $observer
+     */
+    public static function observe(?callable $observer): void
+    {
+        self::$observer = $observer;
+    }
+
+    private static function note(string $kind, int|float $x, int|float $y, int|float $w, int|float $h): void
+    {
+        if (self::$observer !== null) {
+            (self::$observer)($kind, (int) round($x), (int) round($y), (int) round($w), (int) round($h));
+        }
+    }
     private function __construct(private GdImage $image)
     {
         imagealphablending($this->image, true);
@@ -50,6 +70,7 @@ final class Canvas
 
     public function rect(int $x, int $y, int $w, int $h, array $color, float $opacity = 1.0, int $radius = 0): self
     {
+        self::note('rect', $x, $y, $w, $h);
         if ($w <= 0 || $h <= 0) {
             return $this;
         }
@@ -71,6 +92,7 @@ final class Canvas
     /** Anti-aliased filled circle centred on ($cx, $cy). */
     public function circle(int $cx, int $cy, int $diameter, array $color, float $opacity = 1.0): self
     {
+        self::note('circle', $cx - $diameter / 2, $cy - $diameter / 2, $diameter, $diameter);
         $scale = 3;
         $big = $this->layer($diameter * $scale, $diameter * $scale);
         imagefilledellipse(
@@ -351,6 +373,20 @@ final class Canvas
         $small = $this->layer($w, $h);
         imagealphablending($small, false);
         imagecopyresampled($small, $big, 0, 0, 0, 0, $w, $h, $w * $k, $h * $k);
+        if (self::$observer !== null) {
+            // Report the visible shapes, not the (padded) region they were drawn in.
+            [$x0, $y0, $x1, $y1] = [$w, $h, -1, -1];
+            for ($py = 0; $py < $h; $py += 2) {
+                for ($px = 0; $px < $w; $px += 2) {
+                    if ((((int) imagecolorat($small, $px, $py)) >> 24 & 0x7F) < 100) {
+                        [$x0, $y0, $x1, $y1] = [min($x0, $px), min($y0, $py), max($x1, $px), max($y1, $py)];
+                    }
+                }
+            }
+            if ($x1 >= $x0) {
+                self::note('draw', $x + $x0, $y + $y0, $x1 - $x0 + 2, $y1 - $y0 + 2);
+            }
+        }
         $this->compose($small, $x, $y);
 
         return $this;
@@ -480,6 +516,7 @@ final class Canvas
      */
     public function text(string $text, Typography $type, int $sizePx, float $x, float $baselineY, array $color, float $angleDeg = 0.0, float $opacity = 1.0): self
     {
+        self::note('text', $x, $baselineY - $sizePx, $type->measure($text, $sizePx)[0], $sizePx * 1.3);
         imagettftext($this->image, $sizePx * Typography::PX_TO_PT, $angleDeg, (int) round($x), (int) round($baselineY), $this->alloc($this->image, $color, $opacity), $type->fontPath, $text);
 
         return $this;

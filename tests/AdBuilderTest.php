@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Packitifotech\Laragdads\Ads\Ai\AiBackground;
 use Packitifotech\Laragdads\Ads\Ai\AiStyles;
 use Packitifotech\Laragdads\Ads\AdBuilder;
+use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\AdSize;
 use Packitifotech\Laragdads\Ads\Backgrounds;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
@@ -14,6 +15,7 @@ use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Icons;
+use Packitifotech\Laragdads\Ads\Layouts\TemplateLayout;
 use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Support\Typography;
@@ -544,14 +546,15 @@ final class AdBuilderTest extends TestCase
 
         $seen = [];
         foreach ($names as $name) {
-            $c = Canvas::create(1000, 200, [255, 255, 255]);
-            TemplateLibrary::paint($name, $c);
+            $c = Canvas::create(1200, 200, [255, 255, 255]);
+            TemplateLibrary::paint($name, $c, null, 260);
             $ink = TemplateLibrary::palette($name)['ink'];
-            [$x0, $x1] = TemplateLibrary::zone($name, 1000, 200);
-            foreach ([0.25, 0.5, 0.75] as $fx) {
+            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 200, 260);
+            $from = (int) ($x0 + 160);
+            foreach ([0.1, 0.5, 0.9] as $fx) {
                 foreach ([60, 100, 150] as $py) {
-                    $px = (int) ($x0 + ($x1 - $x0) * $fx);
-                    $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable in the free zone");
+                    $px = (int) ($from + ($x1 - $from) * $fx);
+                    $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable in the text area");
                 }
             }
 
@@ -560,6 +563,25 @@ final class AdBuilderTest extends TestCase
             $seen[md5((string) ob_get_clean())] = true;
         }
         $this->assertCount(53, $seen, 'every template looks different');
+    }
+
+    public function test_declared_zones_clear_the_artwork_and_leave_room_for_text(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            foreach ([[1200, 200], [2000, 256], [2800, 256]] as [$w, $h]) {
+                $spec = new AdSpec();
+                $spec->width = $w;
+                $spec->height = $h;
+                $spec->cta = 'Buy now';
+                $reserve = (new TemplateLayout($name))->reserveRight($spec, new Typography(dirname(__DIR__) . '/resources/fonts/DejaVuSans-Bold.ttf'));
+
+                $art = TemplateLibrary::artwork($name, $w, $h, $reserve);
+                [$x0, $x1] = TemplateLibrary::zone($name, $w, $h, $reserve);
+                $this->assertGreaterThanOrEqual($art['left'] * $h - 2, $x0, "{$name} {$w}x{$h}: zone starts after the left artwork");
+                $this->assertLessThanOrEqual(($w - $reserve) - $art['right'] * $h + 2, $x1, "{$name} {$w}x{$h}: zone ends before the right artwork");
+                $this->assertGreaterThanOrEqual(1.0 * $h, $x1 - $x0 - 0.8 * $h, "{$name} {$w}x{$h}: room for the text column");
+            }
+        }
     }
 
     public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void
@@ -710,7 +732,7 @@ final class AdBuilderTest extends TestCase
     public function test_subject_templates_render_at_both_strip_sizes(): void
     {
         foreach (TemplateLibrary::names() as $name) {
-            foreach ([[1200, 200], [2000, 256]] as [$w, $h]) {
+            foreach ([[1200, 200], [2000, 256], [2800, 256]] as [$w, $h]) {
                 $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->cta('Buy')->toPng());
                 $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], "{$name} {$w}x{$h}");
             }
