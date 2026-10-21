@@ -14,6 +14,7 @@ use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Icons;
+use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Support\RichText;
 use Packitifotech\Laragdads\Ads\Support\Typography;
@@ -628,7 +629,7 @@ final class AdBuilderTest extends TestCase
     public function test_every_template_paints_a_distinct_background_with_readable_ink(): void
     {
         $names = TemplateLibrary::names();
-        $this->assertCount(32, $names);
+        $this->assertCount(53, $names);
 
         $seen = [];
         foreach ($names as $name) {
@@ -647,7 +648,7 @@ final class AdBuilderTest extends TestCase
             imagepng($c->image());
             $seen[md5((string) ob_get_clean())] = true;
         }
-        $this->assertCount(32, $seen, 'every template looks different');
+        $this->assertCount(53, $seen, 'every template looks different');
     }
 
     public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void
@@ -692,5 +693,96 @@ final class AdBuilderTest extends TestCase
             }
         }
         $this->assertTrue($found, 'the template accent colours the button');
+    }
+
+    public function test_subject_labels_are_normalised_typos_and_short_forms_included(): void
+    {
+        $this->assertSame(['maths-advanced'], Subjects::groups('Alegbra'));
+        $this->assertSame(['maths-advanced'], Subjects::groups('Trignometry'));
+        $this->assertSame(['maths-advanced'], Subjects::groups('Vectors & 3D Geometry'));
+        $this->assertSame(['reasoning'], Subjects::groups('General Knowlegde'));
+        $this->assertSame(['art'], Subjects::groups('Drawing and Colouring'));
+        $this->assertSame(['computer'], Subjects::groups('Applied  Electronics'));
+        $this->assertSame(['computer'], Subjects::groups('Computer Science - II'));
+        $this->assertSame(['computer'], Subjects::groups('Information Communication & Technology'));
+        $this->assertSame(['commerce'], Subjects::groups('  book KEEPING and Accountancy '));
+        $this->assertSame(['maths'], Subjects::groups('Applied Mathematics'));
+        $this->assertSame(['languages', 'history'], Subjects::groups('Eng/Mar/His'));
+        $this->assertSame(['physics', 'chemistry', 'maths'], Subjects::groups('PCM'));
+        $this->assertSame(['physics', 'chemistry', 'maths', 'biology'], Subjects::groups('Physics + Chemistry + Maths + Biology'));
+        $this->assertSame(['general'], Subjects::groups('Something nobody listed'));
+        $this->assertSame(['something nobody listed'], Subjects::unknown('Something nobody listed'));
+    }
+
+    public function test_every_subject_in_the_supplied_list_is_recognised_and_has_templates(): void
+    {
+        $list = [
+            'EVS', 'Computer', 'Vocabulary', 'Grammar', 'Hindi', 'History', 'Science', 'English', 'Maths', 'Geography', 'Marathi',
+            'Eng/Hin/Mar/His/Geo/Math/Sci', 'Sanskrit', 'Lokvani', 'Eng/Mar/His', 'Social Science', 'History/Geography', 'Chemistry',
+            'Physics', 'Biology', 'Political Science', 'Sociology', 'SP', 'Economics', 'OC', 'Accounts', 'Psychology',
+            'Applied  Electronics', 'Digital Electronics', 'Information Technology', 'Computer Science - I', 'Computer Science - II',
+            'HRM', 'Marketing', 'EMS', 'General Test', 'Book Keeping and Accountancy', 'Applied Mathematics',
+            'Business Studies and Entrepreneurship', 'PCM', 'PCB', 'Business Studies', 'PCMB', 'Water Security', 'Financial Literacy',
+            'Art and Craft', 'English + Hindi + Marathi + History + Geography + Maths + Science', 'English + Maths + Science',
+            'English + Marathi + History + Geography', 'History + Geography', 'Information Communication & Technology',
+            'Physics + Chemistry + Biology', 'Physics + Chemistry + Maths + Biology', 'Physics + Chemistry + Maths', 'Alegbra',
+            'Trignometry', 'Vectors & 3D Geometry', 'Coordinate Geometry', 'Calculus', 'General Knowlegde', 'Drawing and Colouring',
+            'Reasoning', 'Defence Studies', 'Value Education', 'Physical Education',
+        ];
+        foreach ($list as $label) {
+            $this->assertSame([], Subjects::unknown($label), "{$label} is recognised");
+            $this->assertNotEmpty(TemplateLibrary::forSubject($label), "{$label} has templates");
+        }
+    }
+
+    public function test_every_group_has_at_least_two_templates_and_every_template_is_tagged(): void
+    {
+        $byGroup = TemplateLibrary::byGroup();
+        $this->assertSame(Subjects::GROUPS, array_keys($byGroup));
+        foreach ($byGroup as $group => $templates) {
+            $this->assertGreaterThanOrEqual(2, count($templates), $group);
+        }
+        $tagged = array_unique(array_merge(...array_values($byGroup)));
+        $this->assertEqualsCanonicalizing(TemplateLibrary::names(), $tagged, 'no template without a theme group');
+    }
+
+    public function test_subject_picks_templates_that_suit_it_and_variants_rotate(): void
+    {
+        $this->assertContains(TemplateLibrary::pickFor('Physics'), TemplateLibrary::forGroup('physics'));
+        $this->assertContains(TemplateLibrary::pickFor('Calculus', 1), TemplateLibrary::forGroup('maths-advanced'));
+        $this->assertSame(TemplateLibrary::pickFor('Chemistry', 2), TemplateLibrary::pickFor('Chemistry', 2));
+        $this->assertCount(3, array_unique(array_map(fn ($v) => TemplateLibrary::pickFor('Chemistry', $v), [0, 1, 2])));
+        $this->assertEqualsCanonicalizing(
+            array_unique(array_merge(TemplateLibrary::forGroup('history'), TemplateLibrary::forGroup('geography'), TemplateLibrary::forGroup('civics'))),
+            TemplateLibrary::forSubject('Social Science'),
+            'a related-subject label draws on all of their themes'
+        );
+        $this->assertEqualsCanonicalizing(TemplateLibrary::forGroup('general'), TemplateLibrary::forSubject('English + Hindi + Marathi + History + Geography + Maths + Science'));
+
+        $this->expectException(InvalidArgumentException::class);
+        TemplateLibrary::forGroup('nope');
+    }
+
+    public function test_builder_subject_chooses_the_template_and_renders(): void
+    {
+        $ad = fn (string $label, int $v = 0) => AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->subject($label, $v)
+            ->headline('Notes')->cta('Buy now');
+
+        $physics = $ad('Physics')->toPng();
+        $this->assertSame([1200, 200], [imagesx($this->decode($physics)), imagesy($this->decode($physics))]);
+        $this->assertNotSame($physics, $ad('Physics', 1)->toPng(), 'a different variant is a different template');
+        $this->assertSame($physics, $ad('Physics')->toPng());
+        $this->assertNotSame($physics, $ad('Accounts')->toPng());
+        $this->assertSame($ad('Physics')->template('prism-rainbow')->toPng(), AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->template('prism-rainbow')->headline('Notes')->cta('Buy now')->toPng(), 'an explicit template overrides the subject');
+    }
+
+    public function test_subject_templates_render_at_both_strip_sizes(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            foreach ([[1200, 200], [2000, 256]] as [$w, $h]) {
+                $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->cta('Buy')->toPng());
+                $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], "{$name} {$w}x{$h}");
+            }
+        }
     }
 }

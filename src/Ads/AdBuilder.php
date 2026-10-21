@@ -12,6 +12,7 @@ use Packitifotech\Laragdads\Ads\Layouts\Layout;
 use Packitifotech\Laragdads\Ads\Layouts\PromoLayout;
 use Packitifotech\Laragdads\Ads\Layouts\ShowcaseLayout;
 use Packitifotech\Laragdads\Ads\Layouts\TemplateLayout;
+use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Layouts\SplitLayout;
 use Packitifotech\Laragdads\Ads\Layouts\StackedLayout;
@@ -180,6 +181,20 @@ final class AdBuilder
             TemplateLibrary::palette($name);   // validates the name
         }
         $this->spec->template = $name;
+
+        return $this;
+    }
+
+    /**
+     * Pick a template that suits the subject: "Physics", "PCM", "Computer Science - I", "Eng/Mar/His", "Alegbra" (typos and
+     * short forms are understood, see Templates\Subjects). $variant rotates through the templates of that subject, so a
+     * book series can use a different look per title; the same variant always gives the same template.
+     * Call ->template($name) afterwards to override the choice.
+     */
+    public function subject(string $label, int $variant = 0): self
+    {
+        $this->spec->subject = $label;
+        $this->spec->template = TemplateLibrary::pickFor($label, $variant);
 
         return $this;
     }

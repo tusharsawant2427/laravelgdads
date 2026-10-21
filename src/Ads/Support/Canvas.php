@@ -394,8 +394,9 @@ final class Canvas
      *
      * @param callable(GdImage, int, callable): void $draw
      */
-    public function draw(int $x, int $y, int $w, int $h, callable $draw, int $k = 3): self
+    public function draw(int|float $x, int|float $y, int|float $w, int|float $h, callable $draw, int $k = 3): self
     {
+        [$x, $y, $w, $h] = [(int) round($x), (int) round($y), (int) round($w), (int) round($h)];
         if ($w < 1 || $h < 1) {
             return $this;
         }

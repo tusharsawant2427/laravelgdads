@@ -53,6 +53,9 @@ final class AdSpec
     /** Name of an illustrated background template (Templates\\TemplateLibrary). */
     public ?string $template = null;
 
+    /** Subject label that picked the template, e.g. "Physics + Chemistry + Maths" (informational). */
+    public ?string $subject = null;
+
     public GdImage|string|null $footerLogo = null;
     public string $ctaStyle = 'solid';
     public bool $book3d = false;

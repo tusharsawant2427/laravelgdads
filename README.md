@@ -61,7 +61,7 @@ Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
 Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
 Everything is drawn with GD: there is no AI image generation and no network call.
 
-## Illustrated templates (32 banner styles)
+## Illustrated templates (53 banner styles, grouped by subject)
 
 Ready-made backgrounds (mostly light, a few dark) with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
 patterns, and props for physics (atom, bulb, prism, magnet, Newton's cradle, graphs), chemistry (flasks, test tubes, molecule), maths (protractor, ruler, set square, calculator), biology (DNA, microscope), geography (globe), success (trophy, graduation cap, confetti) and more: stacked books, notebook, plant, clock, rocket, clouds).
@@ -83,6 +83,29 @@ Laragdads::ad()->size(AdSize::STRIP)->images($cover)->template('lavender-books')
 // Just the background, any size 3.6:1 or wider (decorations hug the edges and scale with the height):
 TemplateLibrary::paint('prism-rainbow', Canvas::create(2000, 256));
 ```
+
+### Templates by subject
+
+Each template belongs to one or more theme groups (physics, chemistry, biology, maths, maths-advanced, languages, history,
+geography, civics, commerce, computer, psychology, art, reasoning, sports, environment, general). Give the subject and the
+library picks a template that suits it. Subject labels are normalised, so typos (`Alegbra`, `Trignometry`, `General Knowlegde`),
+spacing and short forms (`Eng/Mar/His`, `PCM`, `Physics + Chemistry + Maths`) all work.
+
+```php
+Laragdads::ad()->size(AdSize::STRIP)->images($cover)->subject('Physics + Chemistry + Maths')   // a PCM look
+    ->headline('PCM Notes')->cta('Buy now')->save('ads/pcm.png');
+
+->subject('Calculus', variant: 2);                  // rotate through that subject's templates, one look per title
+TemplateLibrary::forSubject('Accounts');            // all templates that suit a subject
+TemplateLibrary::byGroup();                         // group => templates
+Subjects::groups('Eng/Mar/His');                    // ['languages', 'history']
+Subjects::unknown('Some new subject');              // names the catalogue does not know yet
+```
+
+A single subject uses its own group. Related sciences (`PCM`, `PCB`, `PCMB`, `Science`) draw on all of their themes, `Social
+Science` and `History + Geography` on history, geography and civics, and a mix of unrelated subjects (languages + social
+studies + science ...) on the `general` pool. A subject the catalogue does not know falls back to `general`: add it to
+`Subjects::MAP`. The full table is in [docs/subjects.md](docs/subjects.md).
 
 Text and button colours come from the template. Below 7:1 (such as 1200x200) the secondary doodles are dropped so the
 content fits. `php examples/templates.php` writes every template as a background and as a complete strip.
