@@ -56,6 +56,41 @@ final class Canvas
         return $this->image;
     }
 
+    /** Point drawing at another image of the same size (a transparent layer) and return the one it was drawing on. */
+    public function retarget(GdImage $image): GdImage
+    {
+        $previous = $this->image;
+        $this->image = $image;
+        imagealphablending($this->image, true);
+        imagesavealpha($this->image, true);
+
+        return $previous;
+    }
+
+    /** Whether something is watching the drawing calls (see observe()). */
+    public static function observing(): bool
+    {
+        return self::$observer !== null;
+    }
+
+    /** Report a region to the observer, if any. */
+    public static function report(string $kind, int $x, int $y, int $w, int $h): void
+    {
+        self::note($kind, $x, $y, $w, $h);
+    }
+
+    /** Stop reporting while $run executes (nested drawing that is reported as a whole afterwards). */
+    public static function unobserved(callable $run): void
+    {
+        $saved = self::$observer;
+        self::$observer = null;
+        try {
+            $run();
+        } finally {
+            self::$observer = $saved;
+        }
+    }
+
     public function width(): int
     {
         return imagesx($this->image);

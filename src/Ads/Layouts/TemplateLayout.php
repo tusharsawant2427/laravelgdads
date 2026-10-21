@@ -19,6 +19,14 @@ final class TemplateLayout extends AbstractLayout
     {
     }
 
+    /** The product has the same fixed box on every template (any cover is fitted inside it), as a share of the canvas height. */
+    public const BOOK_HEIGHT = 0.94;
+
+    public const BOOK_WIDTH = 0.7;
+
+    /** Gap between the product and the text, as a share of the height. */
+    public const BOOK_GAP = 0.14;
+
     /** Button height as a share of the canvas height. */
     private const CTA_HEIGHT = 0.36;
 
@@ -54,10 +62,11 @@ final class TemplateLayout extends AbstractLayout
         // Product on the left of the free zone.
         $productW = 0;
         if ($spec->hasImages()) {
-            $ph = (int) round($h * 0.88);
-            $pw = (int) round($ph * 0.74);
+            $ph = (int) round($h * self::BOOK_HEIGHT);
+            $pw = (int) round($h * self::BOOK_WIDTH);
+            $canvas->glow($x0 + intdiv($pw, 2), intdiv($h, 2), (int) round($h * 0.75), [255, 255, 255], 0.38);
             $this->book($canvas, $spec, $x0, (int) round(($h - $ph) / 2), $pw, $ph, 0.0);
-            $productW = $pw + (int) round($h * 0.14);
+            $productW = $pw + (int) round($h * self::BOOK_GAP);
             if ($spec->badge) {
                 $d = (int) round($h * 0.42);
                 $this->badge($canvas, $spec, $theme, $headingFont, $x0 + $pw - (int) ($d * 0.2), (int) round($h * 0.2), $d);

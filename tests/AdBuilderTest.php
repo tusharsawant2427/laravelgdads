@@ -579,7 +579,7 @@ final class AdBuilderTest extends TestCase
                 [$x0, $x1] = TemplateLibrary::zone($name, $w, $h, $reserve);
                 $this->assertGreaterThanOrEqual($art['left'] * $h - 2, $x0, "{$name} {$w}x{$h}: zone starts after the left artwork");
                 $this->assertLessThanOrEqual(($w - $reserve) - $art['right'] * $h + 2, $x1, "{$name} {$w}x{$h}: zone ends before the right artwork");
-                $this->assertGreaterThanOrEqual(1.0 * $h, $x1 - $x0 - 0.8 * $h, "{$name} {$w}x{$h}: room for the text column");
+                $this->assertGreaterThanOrEqual(1.0 * $h, $x1 - $x0 - 0.84 * $h, "{$name} {$w}x{$h}: room for the text column");
             }
         }
     }
