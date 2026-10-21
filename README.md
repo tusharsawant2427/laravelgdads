@@ -61,10 +61,10 @@ Laragdads::ad()->size(AdSize::WEBSITE_BANNER)              // 2000x661
 Narrow sizes (square, story, leaderboard) reuse the same copy in the `books` / `showcase` layouts.
 Everything is drawn with GD: there is no AI image generation and no network call.
 
-## Illustrated templates (20 light, hand-drawn style banners)
+## Illustrated templates (32 banner styles)
 
-Ready-made light backgrounds with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
-patterns, and physics props: atom, bulb, prism, magnet, Newton's cradle, graphs, stacked books, notebook, plant, planet).
+Ready-made backgrounds (mostly light, a few dark) with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
+patterns, and props for physics (atom, bulb, prism, magnet, Newton's cradle, graphs), chemistry (flasks, test tubes, molecule), maths (protractor, ruler, set square, calculator), biology (DNA, microscope), geography (globe), success (trophy, graduation cap, confetti) and more: stacked books, notebook, plant, clock, rocket, clouds).
 The product, headline and button go in the open middle. Everything is drawn with GD, no assets and no network.
 
 ```php
@@ -72,7 +72,9 @@ use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 
 TemplateLibrary::names();   // sky-atom, peach-leaves, lavender-bubbles, aqua-hex, yellow-brush, lavender-books, doodle-grid,
                             // coral-waves, green-leaves, blue-waves-atom, books-emc2, lavender-notebook, cradle-blue,
-                            // peach-physics, magnet-purple, green-graph, bulb-leaves, aqua-atom, prism-rainbow, yellow-projectile
+                            // peach-physics, magnet-purple, green-graph, bulb-leaves, aqua-atom, prism-rainbow, yellow-projectile,
+                            // mint-chemistry, sunrise-maths, forest-biology, ocean-globe, navy-success, cream-stationery,
+                            // rose-celebration, blueprint-dark, sunny-rocket, mint-graph-paper, teal-exam-clock, plum-premium
 
 Laragdads::ad()->size(AdSize::STRIP)->images($cover)->template('lavender-books')
     ->headline('MHT-CET Physics: 28 Years Previous Solved Papers')->subheadline('Chapter-wise papers from 1999 to 2026')

@@ -4,6 +4,7 @@ namespace Packitifotech\Laragdads\Ads\Templates;
 
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Color;
+use Packitifotech\Laragdads\Ads\Support\Icons;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 
 /**
@@ -43,6 +44,18 @@ private const PALETTE = [
         'aqua-atom' => ['ink' => '#123c6c', 'accent' => '#2c86d8', 'zone' => [0.5, 1.4]],
         'prism-rainbow' => ['ink' => '#2b2f78', 'accent' => '#5a5fe0', 'zone' => [2.3, 1.0], 'compact' => [1.95, 1.0]],
         'yellow-projectile' => ['ink' => '#3d3018', 'accent' => '#e8a200', 'zone' => [1.5, 2.2], 'compact' => [1.5, 1.15]],
+        'mint-chemistry' => ['ink' => '#0f4d45', 'accent' => '#0e9a82', 'zone' => [1.8, 1.8], 'compact' => [1.15, 1.2]],
+        'sunrise-maths' => ['ink' => '#5a2a1c', 'accent' => '#ee6a2a', 'zone' => [2.25, 2.0], 'compact' => [2.0, 1.15]],
+        'forest-biology' => ['ink' => '#1f4a28', 'accent' => '#3f9a3e', 'zone' => [1.5, 1.7], 'compact' => [1.1, 1.2]],
+        'ocean-globe' => ['ink' => '#0f4a5c', 'accent' => '#0e92b0', 'zone' => [1.5, 1.5], 'compact' => [1.5, 1.25]],
+        'navy-success' => ['ink' => '#ffffff', 'accent' => '#f6b823', 'zone' => [1.7, 1.6], 'compact' => [1.25, 1.5]],
+        'cream-stationery' => ['ink' => '#4a3520', 'accent' => '#e08a2a', 'zone' => [1.6, 1.8], 'compact' => [1.2, 1.2]],
+        'rose-celebration' => ['ink' => '#5a2040', 'accent' => '#e0457a', 'zone' => [1.5, 1.5], 'compact' => [1.4, 1.3]],
+        'blueprint-dark' => ['ink' => '#ffffff', 'accent' => '#ffd24a', 'zone' => [1.9, 1.9], 'compact' => [1.0, 1.0]],
+        'sunny-rocket' => ['ink' => '#1c4a78', 'accent' => '#f08a1e', 'zone' => [1.1, 1.6], 'compact' => [0.5, 1.2]],
+        'mint-graph-paper' => ['ink' => '#1c4a38', 'accent' => '#2ca066', 'zone' => [1.9, 1.9], 'compact' => [1.6, 1.25]],
+        'teal-exam-clock' => ['ink' => '#0f4a4a', 'accent' => '#16a39a', 'zone' => [1.5, 1.5], 'compact' => [1.4, 1.3]],
+        'plum-premium' => ['ink' => '#ffffff', 'accent' => '#f4c040', 'zone' => [1.3, 1.6], 'compact' => [1.2, 1.2]],
     ];
 
     /** @return string[] */
@@ -343,5 +356,174 @@ private const PALETTE = [
         Doodles::sprig($c, (int) ($w - $h * 0.8), (int) ($h * 1.0), (int) ($h * 0.8), 30, self::hex('#2f6b3a'), false, 6, 0.95, 4);
         Doodles::notebook($c, (int) ($w - $h * 1.05), (int) ($h * 0.18), (int) ($h * 0.82), (int) ($h * 0.82), 10, $s, 's=ut+½at²', self::hex('#2a2a70'));
         Doodles::dots($c, (int) ($h * 1.7), (int) ($h * 0.6), 6, 3, (int) ($h * 0.085), self::hex('#d8a020'), 0.55);
+    }
+
+    // ============================================================== more styles
+
+    private static function tMintChemistry(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#d4f5ea'), self::hex('#effcf7'), 'horizontal');
+        Doodles::hexes($c, 0, 0, $w, $h, (int) ($h * 0.34), self::hex('#6fcfb4'), 0.35, self::hex('#6fcfb4'), 91);
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#f6fffb'), 0.85, 28);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.1, 3.0, 0.4, self::hex('#5cc4a6'), 0.6);
+        Props::flask($c, (int) ($h * 0.55), (int) ($h * 0.97), (int) ($h * 0.82), self::hex('#8a5be0'), 'conical');
+        Props::molecule($c, (int) ($w - $h * 0.62), (int) ($h * 0.46), (int) ($h * 0.5), self::hex('#2f6fe0'));
+        if ($wide) {
+            Props::flask($c, (int) ($h * 1.25), (int) ($h * 0.97), (int) ($h * 0.62), self::hex('#f0a030'), 'round');
+            Props::testTubes($c, (int) ($w - $h * 1.78), (int) ($h * 0.97), (int) ($h * 0.7), [self::hex('#e85a7a'), self::hex('#3aa0e8'), self::hex('#6cc04a')]);
+        }
+        Doodles::dots($c, (int) ($w * 0.9), (int) ($h * 0.05), 5, 3, (int) ($h * 0.085), self::hex('#2a9a80'), 0.5);
+    }
+
+    private static function tSunriseMaths(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#ffe3cc'), self::hex('#fff4e6'), 'horizontal');
+        Doodles::blob($c, (int) ($h * 0.7), (int) ($h * 0.35), (int) ($h * 1.1), (int) ($h * 0.65), self::hex('#fbbf84'), 0.6, 29);
+        Doodles::blob($c, (int) ($w * 0.97), (int) ($h * 0.3), (int) ($h * 1.2), (int) ($h * 0.7), self::hex('#f9a86a'), 0.65, 30);
+        Doodles::swipes($c, (int) ($w - $h * 0.9), (int) ($h * 0.55), (int) ($h * 0.9), (int) ($h * 0.45), [self::hex('#f6b823')], 4, 95, -38, 1.0);
+        Props::geometrySet($c, (int) ($h * 0.1), (int) ($h * 0.98), (int) ($h * 0.74));
+        Props::calculator($c, (int) ($w - $h * 0.95), (int) ($h * 0.16), (int) ($h * 0.56), 10);
+        if ($wide) {
+            $c->text('π', $s, (int) ($h * 0.42), $h * 1.95, $h * 0.5, self::hex('#d9622a'), 6);
+            $c->text('a² + b² = c²', $s, (int) ($h * 0.22), $w - $h * 2.0, $h * 0.2, self::hex('#d9622a'), 4);
+        }
+        Doodles::dots($c, (int) ($h * 0.15), (int) ($h * 0.06), 7, 3, (int) ($h * 0.085), self::hex('#e8944a'), 0.5);
+    }
+
+    private static function tForestBiology(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#e2f4d0'), self::hex('#f6fbe8'), 'horizontal');
+        Doodles::wave($c, 0, $w, $h * 0.78, $h * 0.14, 1.6, 0.4, self::hex('#a6d870'), 0.6);
+        Doodles::wave($c, 0, $w, $h * 0.92, $h * 0.1, 2.0, 1.4, self::hex('#7cc050'), 0.7);
+        Props::dna($c, (int) ($h * 0.7), (int) ($h * 0.5), (int) ($h * 1.5), self::hex('#2f9a58'), self::hex('#e0782c'), 68);
+        Props::microscope($c, (int) ($w - $h * 0.75), (int) ($h * 0.98), (int) ($h * 0.86));
+        if ($wide) {
+            Doodles::sprig($c, (int) ($w - $h * 1.6), (int) ($h * 1.0), (int) ($h * 0.8), -20, self::hex('#2b6b2f'), false, 6, 0.95, 12);
+            Doodles::sprig($c, (int) ($h * 1.4), (int) ($h * 1.0), (int) ($h * 0.7), 22, self::hex('#2b6b2f'), false, 6, 0.95, 13);
+        }
+        Doodles::dots($c, (int) ($w * 0.88), (int) ($h * 0.06), 5, 3, (int) ($h * 0.085), self::hex('#4b9a3a'), 0.45);
+    }
+
+    private static function tOceanGlobe(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#cdeff2'), self::hex('#ecf9fb'), 'horizontal');
+        Doodles::wave($c, 0, $w, $h * 0.7, $h * 0.14, 1.8, 0.2, self::hex('#8fd4dc'), 0.55);
+        Doodles::wave($c, 0, $w, $h * 0.86, $h * 0.12, 2.3, 1.2, self::hex('#4fb8c6'), 0.65);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.08, 3.0, 0.6, self::hex('#1e9db4'), 0.8);
+        Props::cloud($c, (int) ($h * 1.55), (int) ($h * 0.25), (int) ($h * 0.42));
+        Props::cloud($c, (int) ($w - $h * 0.5), (int) ($h * 0.2), (int) ($h * 0.36));
+        Props::globe($c, (int) ($h * 0.75), (int) ($h * 0.5), (int) ($h * 0.62));
+        Icons::draw($c, 'compass', (int) ($w - $h * 0.8), (int) ($h * 0.55), (int) ($h * 0.6), self::hex('#0f6f86'), 0.05);
+        Doodles::dots($c, (int) ($w * 0.9), (int) ($h * 0.7), 5, 3, (int) ($h * 0.085), self::hex('#ffffff'), 0.7);
+    }
+
+    private static function tNavySuccess(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#1a2858'), self::hex('#33458f'), 'horizontal');
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#4a5cb0'), 0.3, 31);
+        Doodles::ribbon($c, 0, $w, $h * 0.9, $h * 0.1, 1.4, 0.4, $h * 0.04, self::hex('#f6c13a'), 0.6);
+        Props::confetti($c, 0, 0, (int) ($h * 1.5), $h, [self::hex('#f6c13a'), self::hex('#ffffff'), self::hex('#ee6a8a'), self::hex('#6ac0f0')], 14, 5);
+        Props::confetti($c, (int) ($w - $h * 1.5), 0, (int) ($h * 1.5), $h, [self::hex('#f6c13a'), self::hex('#ffffff'), self::hex('#ee6a8a'), self::hex('#6ac0f0')], 14, 6);
+        Props::gradCap($c, (int) ($h * 0.85), (int) ($h * 0.55), (int) ($h * 0.52), self::hex('#6a80e0'));
+        Props::trophy($c, (int) ($w - $h * 0.8), (int) ($h * 0.98), (int) ($h * 0.82));
+        Doodles::sparkle($c, (int) ($h * 1.5), (int) ($h * 0.25), (int) ($h * 0.07), self::hex('#f6c13a'), 0.95);
+        Doodles::sparkle($c, (int) ($w - $h * 1.45), (int) ($h * 0.7), (int) ($h * 0.06), self::hex('#ffffff'), 0.9);
+    }
+
+    private static function tCreamStationery(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#fff5e0'), self::hex('#fffaf0'), 'horizontal');
+        Doodles::blob($c, (int) ($h * 0.7), (int) ($h * 0.95), (int) ($h * 1.2), (int) ($h * 0.55), self::hex('#fbd9a0'), 0.7, 32);
+        Doodles::blob($c, (int) ($w * 0.96), (int) ($h * 0.7), (int) ($h * 1.3), (int) ($h * 0.7), self::hex('#f9cf94'), 0.65, 33);
+        Doodles::books($c, (int) ($h * 0.1), (int) ($h * 0.99), (int) ($h * 0.9), [[216, 90, 90], [250, 190, 50], [60, 110, 190]], 7);
+        Props::clock($c, (int) ($h * 1.45), (int) ($h * 0.3), (int) ($h * 0.3));
+        Doodles::pencilCup($c, (int) ($w - $h * 1.45), (int) ($h * 0.98), (int) ($h * 0.42));
+        Doodles::notebook($c, (int) ($w - $h * 0.95), (int) ($h * 0.14), (int) ($h * 0.72), (int) ($h * 0.82), 8, $s, '', self::hex('#2a2a80'));
+        Doodles::dots($c, (int) ($w * 0.12), (int) ($h * 0.05), 6, 3, (int) ($h * 0.085), self::hex('#d8a050'), 0.5);
+    }
+
+    private static function tRoseCelebration(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#ffe1ea'), self::hex('#fff3f6'), 'horizontal');
+        Doodles::wave($c, 0, (int) ($w * 0.5), $h * 0.9, $h * 0.14, 1.4, 0.2, self::hex('#f8a8bd'), 0.5);
+        Doodles::wave($c, (int) ($w * 0.5), $w, $h * 0.9, $h * 0.14, 1.4, 1.6, self::hex('#f7b8a8'), 0.5);
+        Props::confetti($c, 0, 0, (int) ($h * 1.6), $h, [self::hex('#e8527e'), self::hex('#f6b823'), self::hex('#7a5be0'), self::hex('#3aa8d8')], 16, 7);
+        Props::confetti($c, (int) ($w - $h * 1.6), 0, (int) ($h * 1.6), $h, [self::hex('#e8527e'), self::hex('#f6b823'), self::hex('#7a5be0'), self::hex('#3aa8d8')], 16, 8);
+        Props::gradCap($c, (int) ($h * 0.8), (int) ($h * 0.55), (int) ($h * 0.5), self::hex('#c03a68'));
+        Doodles::sparkle($c, (int) ($w - $h * 0.7), (int) ($h * 0.5), (int) ($h * 0.18), self::hex('#f6b823'), 1.0);
+        Doodles::sparkle($c, (int) ($w - $h * 1.1), (int) ($h * 0.22), (int) ($h * 0.07), self::hex('#e8527e'), 0.9);
+        Doodles::sparkle($c, (int) ($h * 1.5), (int) ($h * 0.75), (int) ($h * 0.07), self::hex('#f6b823'), 0.9);
+    }
+
+    private static function tBlueprintDark(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        $line = self::hex('#bcd4ff');
+        Doodles::wash($c, self::hex('#10306a'), self::hex('#1d4694'), 'horizontal');
+        Doodles::grid($c, (int) ($h * 0.16), self::hex('#8fb2f2'), 0.16);
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#2a5cb8'), 0.3, 34);
+        Doodles::atom($c, (int) ($h * 0.65), (int) ($h * 0.5), (int) ($h * 0.46), $line, self::hex('#ffd24a'), 0.025);
+        Doodles::bulb($c, (int) ($w - $h * 0.6), (int) ($h * 0.46), (int) ($h * 0.42), $line, false);
+        if ($wide) {
+            Doodles::graph($c, (int) ($h * 1.35), (int) ($h * 0.22), (int) ($h * 0.95), (int) ($h * 0.6), 'sine', $line, true, $s);
+            $c->text('E = mc²', $s, (int) ($h * 0.26), $w - $h * 1.85, $h * 0.58, $line);
+        }
+        Doodles::dots($c, (int) ($w * 0.9), (int) ($h * 0.8), 5, 2, (int) ($h * 0.085), self::hex('#ffd24a'), 0.7);
+    }
+
+    private static function tSunnyRocket(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#bfe8fb'), self::hex('#eaf8ff'), 'vertical');
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.12, 2.2, 0.3, self::hex('#8fd070'), 0.85);
+        Doodles::wave($c, 0, $w, $h * 1.08, $h * 0.1, 2.6, 1.3, self::hex('#6cbb4a'), 0.9);
+        Props::cloud($c, (int) ($h * 0.5), (int) ($h * 0.3), (int) ($h * 0.44));
+        Props::cloud($c, (int) ($h * 1.0), (int) ($h * 0.72), (int) ($h * 0.3));
+        Props::cloud($c, (int) ($w - $h * 1.5), (int) ($h * 0.22), (int) ($h * 0.34));
+        Props::rocket($c, (int) ($w - $h * 0.65), (int) ($h * 0.5), (int) ($h * 0.82), 38);
+        Doodles::sparkle($c, (int) ($w - $h * 1.15), (int) ($h * 0.6), (int) ($h * 0.06), self::hex('#f6b823'), 1.0);
+        if ($wide) {
+            Doodles::sparkle($c, (int) ($w - $h * 0.3), (int) ($h * 0.15), (int) ($h * 0.06), self::hex('#f6b823'), 1.0);
+            Doodles::planet($c, (int) ($w - $h * 1.9), (int) ($h * 0.36), (int) ($h * 0.2));
+        }
+    }
+
+    private static function tMintGraphPaper(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        $ink = self::hex('#1f5a40');
+        Doodles::wash($c, self::hex('#e3f7ea'), self::hex('#f6fcf8'), 'horizontal');
+        Doodles::grid($c, (int) ($h * 0.16), self::hex('#6fc49a'), 0.28);
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.72), self::hex('#fbfffc'), 0.9, 35);
+        Doodles::swipes($c, 0, (int) ($h * 0.6), (int) ($h * 0.7), (int) ($h * 0.4), [self::hex('#3cb480')], 4, 96, -38, 1.0);
+        Doodles::graph($c, (int) ($h * 0.35), (int) ($h * 0.14), (int) ($h * 1.15), (int) ($h * 0.72), 'sine', $ink, true, $s);
+        Doodles::graph($c, (int) ($w - $h * 1.6), (int) ($h * 0.12), (int) ($h * 1.1), (int) ($h * 0.74), 'parabola', $ink, false);
+        $c->text('π', $s, (int) ($h * 0.46), $w - $h * 0.62, $h * 0.46, $ink, 6);
+        $c->text('Σ', $s, (int) ($h * 0.36), $w - $h * 0.5, $h * 0.86, self::hex('#2ca066'), -4);
+    }
+
+    private static function tTealExamClock(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#d0f1ee'), self::hex('#ecfaf9'), 'horizontal');
+        Doodles::wave($c, 0, $w, $h * 0.85, $h * 0.14, 1.8, 0.5, self::hex('#7fd3cb'), 0.5);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.1, 2.4, 1.0, self::hex('#3fb8ae'), 0.65);
+        Props::clock($c, (int) ($h * 0.7), (int) ($h * 0.5), (int) ($h * 0.5), self::hex('#1aa59a'));
+        Icons::draw($c, 'list', (int) ($w - $h * 0.7), (int) ($h * 0.46), (int) ($h * 0.66), self::hex('#0f5f5a'), 0.05);
+        Icons::draw($c, 'pencil', (int) ($w - $h * 0.35), (int) ($h * 0.78), (int) ($h * 0.34), self::hex('#e08a2a'), 0.06);
+        if ($wide) {
+            Icons::draw($c, 'check', (int) ($h * 1.55), (int) ($h * 0.3), (int) ($h * 0.26), self::hex('#1aa59a'), 0.06);
+            Icons::draw($c, 'target', (int) ($w - $h * 1.4), (int) ($h * 0.3), (int) ($h * 0.3), self::hex('#0f5f5a'), 0.05);
+        }
+        Doodles::dots($c, (int) ($w * 0.9), (int) ($h * 0.06), 5, 3, (int) ($h * 0.085), self::hex('#2a9a92'), 0.5);
+    }
+
+    private static function tPlumPremium(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#34195a'), self::hex('#58308a'), 'horizontal');
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#6a3ea0'), 0.3, 36);
+        Doodles::ribbon($c, 0, (int) ($w * 0.3), $h * 0.85, $h * 0.14, 1.0, 0.4, $h * 0.04, self::hex('#f4c040'), 0.85);
+        Doodles::ribbon($c, (int) ($w * 0.7), $w, $h * 0.3, $h * 0.14, 1.0, 2.4, $h * 0.04, self::hex('#f4c040'), 0.85);
+        Doodles::books($c, (int) ($h * 0.15), (int) ($h * 0.98), (int) ($h * 0.9), [[244, 192, 64], [236, 232, 246], [122, 78, 186]], 11);
+        Props::gradCap($c, (int) ($w - $h * 0.7), (int) ($h * 0.5), (int) ($h * 0.5), self::hex('#9a6ae0'));
+        Doodles::sparkle($c, (int) ($h * 1.25), (int) ($h * 0.22), (int) ($h * 0.08), self::hex('#f4c040'), 0.95);
+        Doodles::sparkle($c, (int) ($w - $h * 1.25), (int) ($h * 0.75), (int) ($h * 0.07), self::hex('#f4c040'), 0.9);
+        Doodles::dots($c, (int) ($w * 0.88), (int) ($h * 0.7), 5, 3, (int) ($h * 0.085), self::hex('#d8b0f0'), 0.5);
     }
 }

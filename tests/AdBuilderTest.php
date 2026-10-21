@@ -625,31 +625,35 @@ final class AdBuilderTest extends TestCase
         $this->assertLessThan(15, Color::hueDistance($orange, [240, 138, 60]));
     }
 
-    public function test_there_are_twenty_templates_and_each_paints_a_distinct_light_background(): void
+    public function test_every_template_paints_a_distinct_background_with_readable_ink(): void
     {
         $names = TemplateLibrary::names();
-        $this->assertCount(20, $names);
+        $this->assertCount(32, $names);
 
         $seen = [];
         foreach ($names as $name) {
             $c = Canvas::create(1000, 200, [255, 255, 255]);
             TemplateLibrary::paint($name, $c);
             $ink = TemplateLibrary::palette($name)['ink'];
-            foreach ([[300, 100], [500, 60], [500, 100], [500, 150], [700, 100]] as [$px, $py]) {
-                $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable on the middle");
+            [$x0, $x1] = TemplateLibrary::zone($name, 1000, 200);
+            foreach ([0.25, 0.5, 0.75] as $fx) {
+                foreach ([60, 100, 150] as $py) {
+                    $px = (int) ($x0 + ($x1 - $x0) * $fx);
+                    $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable in the free zone");
+                }
             }
 
             ob_start();
             imagepng($c->image());
             $seen[md5((string) ob_get_clean())] = true;
         }
-        $this->assertCount(20, $seen, 'every template looks different');
+        $this->assertCount(32, $seen, 'every template looks different');
     }
 
     public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void
     {
         $cover = $this->packshot();
-        foreach (['sky-atom', 'doodle-grid', 'prism-rainbow'] as $name) {
+        foreach (['sky-atom', 'doodle-grid', 'prism-rainbow', 'mint-chemistry', 'navy-success', 'sunny-rocket'] as $name) {
             foreach ([[1200, 200], [2000, 256]] as [$sw, $sh]) {
                 $img = $this->decode(AdBuilder::make()->size($sw, $sh)->images($cover)->template($name)
                     ->headline('MHT-CET Physics')->subheadline('Solved papers')->cta('Buy now')->badge('4100+')->toPng());
