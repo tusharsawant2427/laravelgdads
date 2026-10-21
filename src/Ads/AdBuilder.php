@@ -155,7 +155,7 @@ final class AdBuilder
 
     /**
      * Use one of the illustrated banner templates (see Templates\TemplateLibrary::names()): a light, hand-drawn style
-     * background with the product, headline and button in its open middle. Needs a wide size (3.6:1 or wider).
+     * background with the product, headline and button in its open middle. Needs a wide size (3.6:1 or wider) or a portrait one such as 336x453.
      */
     public function template(?string $name): self
     {
@@ -556,8 +556,8 @@ final class AdBuilder
     private function resolveLayout(): Layout
     {
         if ($this->spec->template !== null) {
-            if ($this->spec->aspectRatio() < 3.6) {
-                throw new InvalidArgumentException("Template [{$this->spec->template}] needs a wide size (3.6:1 or wider), got {$this->spec->width}x{$this->spec->height}.");
+            if ($this->spec->aspectRatio() < 3.6 && !TemplateLibrary::isPortrait($this->spec->width, $this->spec->height)) {
+                throw new InvalidArgumentException("Template [{$this->spec->template}] needs a wide size (3.6:1 or wider) or a portrait one (taller than 0.9:1), got {$this->spec->width}x{$this->spec->height}.");
             }
 
             return new TemplateLayout($this->spec->template);

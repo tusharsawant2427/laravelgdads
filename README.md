@@ -48,6 +48,11 @@ Laragdads::ad()->size(AdSize::STRIP)->images($cover)->template('lavender-books')
     ->headline('MHT-CET Physics: 28 Years Previous Solved Papers')->subheadline('Chapter-wise papers from 1999 to 2026')
     ->cta('Buy now')->save('ads/strip.png');
 
+// The same templates as a 336x453 portrait: decorated bands frame the top and bottom, the headline sits in the top band,
+// then a big product box, the sub-headline and the button (always at the same place above the bottom band):
+Laragdads::ad()->size(336, 453)->images($cover)->subject('Physics')->headline('Physics Notes')
+    ->subheadline('Chapter-wise notes and practice papers')->cta('Buy now')->save('ads/portrait.png');
+
 // Just the background, any size 3.6:1 or wider (decorations hug the edges and scale with the height):
 TemplateLibrary::paint('prism-rainbow', Canvas::create(2000, 256));
 ```

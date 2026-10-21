@@ -601,6 +601,30 @@ final class AdBuilderTest extends TestCase
         }
     }
 
+    public function test_every_template_renders_as_a_336x453_portrait_with_a_readable_headline(): void
+    {
+        $cover = $this->packshot();
+        foreach (TemplateLibrary::names() as $name) {
+            $img = $this->decode(AdBuilder::make()->size(336, 453)->images($cover)->template($name)
+                ->headline('Physics')->subheadline('Solved papers')->cta('Buy now')->toPng());
+            $this->assertSame([336, 453], [imagesx($img), imagesy($img)], $name);
+
+            // the button sits at the same place on every template: centred, just above the bottom band
+            $accent = TemplateLibrary::palette($name)['accent'];
+            $px = $this->rgb($img, 126, 453 - TemplateLibrary::band(336) - 8 - 17);
+            $this->assertLessThanOrEqual(6, max(abs($px[0] - $accent[0]), abs($px[1] - $accent[1]), abs($px[2] - $accent[2])), "{$name}: button colour at its fixed spot");
+        }
+    }
+
+    public function test_portrait_book_is_big_and_the_same_box_on_every_template(): void
+    {
+        $this->assertGreaterThanOrEqual(0.6, TemplateLayout::BOOK_WIDTH);
+        $this->assertSame(0.94, TemplateLayout::BOOK_HEIGHT);
+        $this->assertGreaterThan(40, TemplateLibrary::band(336));
+        $this->assertTrue(TemplateLibrary::isPortrait(336, 453));
+        $this->assertFalse(TemplateLibrary::isPortrait(1200, 200));
+    }
+
     public function test_templates_reject_unknown_names_and_narrow_canvases(): void
     {
         try {

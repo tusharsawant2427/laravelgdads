@@ -20,8 +20,16 @@ final class Doodles
     // ----------------------------------------------------------- base shapes
 
     /** Vertical or diagonal two-colour wash over the whole canvas. */
+    /** When an array, wash() records its arguments here instead of painting (see TemplateLibrary::paintPortrait()). */
+    public static ?array $washCapture = null;
+
     public static function wash(Canvas $c, array $from, array $to, string $dir = 'diagonal'): void
     {
+        if (self::$washCapture !== null) {
+            self::$washCapture = [$from, $to, $dir];
+
+            return;
+        }
         $c->gradient($from, $to, $dir);
     }
 

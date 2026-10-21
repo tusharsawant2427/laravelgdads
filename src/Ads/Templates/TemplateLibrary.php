@@ -290,9 +290,14 @@ private const PALETTE = [
     public static function paint(string $name, Canvas $c, ?Typography $script = null, int $reserveRight = 0): void
     {
         self::palette($name);   // validates the name
+        $script ??= new Typography(dirname(__DIR__, 3) . '/resources/fonts/LiberationSerif-BoldItalic.ttf');
+        if (self::isPortrait($c->width(), $c->height())) {
+            self::paintPortrait($name, $c, $script);
+
+            return;
+        }
         $w = $c->width() - max(0, $reserveRight);
         $h = $c->height();
-        $script ??= new Typography(dirname(__DIR__, 3) . '/resources/fonts/LiberationSerif-BoldItalic.ttf');
         $method = 't' . str_replace('-', '', ucwords($name, '-'));
         self::$method($c, $w, $h, $script, $w / max(1, $h) >= self::WIDE);
     }
@@ -303,6 +308,64 @@ private const PALETTE = [
     }
 
     // ============================================================== sheet 1
+
+    /** Templates are drawn as a strip (3.6:1 and wider) or, on tall canvases, as a framed portrait. */
+    public static function isPortrait(int $width, int $height): bool
+    {
+        return $width / max(1, $height) <= 0.9;
+    }
+
+    /** Height of the decorated bands at the top and bottom of a portrait canvas of this width. */
+    public static function band(int $width): int
+    {
+        return (int) round($width * 0.19);
+    }
+
+    /**
+     * Portrait layout: the template's strip drawing is painted once on a transparent band and used at the top and at the
+     * bottom of the canvas (its illustrations in the corners, its waves and patterns across), fading out towards the middle;
+     * the template's own background colours fill the canvas behind them.
+     */
+    private static function paintPortrait(string $name, Canvas $c, Typography $script): void
+    {
+        $w = $c->width();
+        $band = self::band($w);
+        $method = 't' . str_replace('-', '', ucwords($name, '-'));
+
+        $layer = imagecreatetruecolor($w, $band);
+        imagealphablending($layer, false);
+        imagesavealpha($layer, true);
+        imagefill($layer, 0, 0, imagecolorallocatealpha($layer, 0, 0, 0, 127));
+        Doodles::$washCapture = [[255, 255, 255], [255, 255, 255], 'horizontal'];
+        try {
+            Canvas::unobserved(fn () => self::$method(Canvas::wrap($layer), $w, $band, $script, false));
+            [$from, $to, $dir] = Doodles::$washCapture;
+        } finally {
+            Doodles::$washCapture = null;
+        }
+        $c->gradient($from, $to, $dir);
+
+        foreach ([true, false] as $top) {
+            $copy = imagecreatetruecolor($w, $band);
+            imagealphablending($copy, false);
+            imagesavealpha($copy, true);
+            imagecopy($copy, $layer, 0, 0, 0, 0, $w, $band);
+            // Fade the edge that faces the middle of the canvas, so shapes cut off by the band do not leave a hard line.
+            $ramp = (int) round($band * 0.35);
+            for ($i = 0; $i < $ramp; $i++) {
+                $f = $i / $ramp;
+                $y = $top ? $band - 1 - $i : $i;
+                for ($x = 0; $x < $w; $x++) {
+                    $a = (imagecolorat($copy, $x, $y) >> 24) & 0x7F;
+                    if ($a < 127) {
+                        imagesetpixel($copy, $x, $y, (imagecolorat($copy, $x, $y) & 0xFFFFFF) | ((int) round(127 - (127 - $a) * $f) << 24));
+                    }
+                }
+            }
+            imagealphablending($c->image(), true);
+            imagecopy($c->image(), $copy, 0, $top ? 0 : $c->height() - $band, 0, 0, $w, $band);
+        }
+    }
 
     /** Illustrations are drawn this much smaller than their recipe says, so the product stays the focus of the banner. */
     private const ART_SCALE = 0.78;

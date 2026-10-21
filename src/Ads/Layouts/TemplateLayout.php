@@ -52,6 +52,11 @@ final class TemplateLayout extends AbstractLayout
 
     public function render(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
     {
+        if (TemplateLibrary::isPortrait($spec->width, $spec->height)) {
+            $this->renderPortrait($canvas, $spec, $theme, $headingFont, $bodyFont);
+
+            return;
+        }
         $w = $spec->width;
         $h = $spec->height;
         $reserve = $this->reserveRight($spec, $headingFont);
@@ -88,5 +93,60 @@ final class TemplateLayout extends AbstractLayout
         $copy->textShadow = false;
         $copy->textAlign = $spec->textAlign ?? 'left';
         $this->textColumn($canvas, $copy, $theme, $headingFont, $bodyFont, $tx, $m, max(20, $tw), $h - 2 * $m, 'left', $ink, false);
+    }
+
+    /**
+     * Portrait: the template's decorated bands frame the top and bottom; the headline sits in the open middle of the top
+     * band, the product below it, then the sub-headline and the button, which is always at the same place above the bottom band.
+     */
+    private function renderPortrait(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
+    {
+        $w = $spec->width;
+        $h = $spec->height;
+        $band = TemplateLibrary::band($w);
+        $ink = $theme->text;
+        $m = (int) round($w * 0.05);
+
+        // Headline in the free middle of the top band.
+        [$x0, $x1] = TemplateLibrary::zone($this->template, $w, $band);
+        if ($x1 - $x0 < $w * 0.45) {   // never squeeze the headline into less than this
+            $mid = intdiv($x0 + $x1, 2);
+            [$x0, $x1] = [$mid - (int) ($w * 0.225), $mid + (int) ($w * 0.225)];
+        }
+        [$x0, $x1] = [$x0 + (int) ($w * 0.02), $x1 - (int) ($w * 0.02)];
+        $copy = clone $spec;
+        $copy->subheadline = null;
+        $copy->textPanel = false;
+        $copy->textShadow = false;
+        $this->textColumn($canvas, $copy, $theme, $headingFont, $bodyFont, $x0, (int) round($band * 0.04), $x1 - $x0, (int) round($band * 0.92), 'center', $ink, false);
+
+        // Button: fixed above the bottom band.
+        $ch = (int) round($w * 0.105);
+        $by = $h - $band - $ch - (int) round($w * 0.025);
+        if ($spec->cta) {
+            $this->cta($canvas, $spec, $theme, $headingFont, $m, $by, $w - 2 * $m, $ch, 'center');
+        }
+
+        // Sub-headline above the button.
+        $subH = $spec->subheadline ? (int) round($w * 0.12) : 0;
+        $sy = $by - (int) round($w * 0.02) - $subH;
+        if ($subH > 0) {
+            $sub = $bodyFont->fit($spec->subheadline, $w - 2 * $m, $subH, (int) round($w * 0.05), 10, 1.25, 2);
+            $canvas->lines($sub['lines'], $bodyFont, $sub['size'], $m, $sy + max(0, intdiv($subH - $sub['height'], 2)), $w - 2 * $m, $ink, 'center', $sub['lineHeight'], null, 0.92);
+        }
+
+        // Product between the headline band and the sub-headline: a fixed box, the same on every template.
+        if ($spec->hasImages()) {
+            $top = $band + (int) round($w * 0.01);
+            $ph = min((int) round($w * 0.92), $sy - (int) round($w * 0.01) - $top);   // as big as the space allows
+            $pw = (int) round($ph * self::BOOK_WIDTH / self::BOOK_HEIGHT);
+            $px = intdiv($w - $pw, 2);
+            $canvas->glow($px + intdiv($pw, 2), $top + intdiv($ph, 2), (int) round($ph * 0.75), [255, 255, 255], 0.38);
+            $this->book($canvas, $spec, $px, $top, $pw, $ph, 0.0);
+            if ($spec->badge) {
+                $d = (int) round($ph * 0.4);
+                $this->badge($canvas, $spec, $theme, $headingFont, $px + $pw - (int) ($d * 0.35), $top, $d);
+            }
+        }
     }
 }
