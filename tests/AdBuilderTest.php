@@ -601,4 +601,26 @@ final class AdBuilderTest extends TestCase
         $this->assertSame([240, 230, 250], $this->rgb($page->image(), 5, 5), 'white leaves the page unchanged');
         $this->assertLessThan(120, $this->rgb($page->image(), 50, 50)[0], 'dark artwork shows through');
     }
+
+    public function test_theme_extraction_does_not_silently_fall_back_to_the_default_colour(): void
+    {
+        $c = Canvas::create(200, 280, [255, 255, 255]);
+        $c->rect(20, 16, 160, 240, [200, 120, 40]);
+        imagepng($c->image(), $this->dir . '/orange.png');
+
+        $theme = Theme::fromImage($this->dir . '/orange.png');
+        $this->assertNotSame(Theme::FALLBACK, $theme->primary);
+        $this->assertLessThan(25, Color::hueDistance($theme->primary, [200, 120, 40]));
+    }
+
+    public function test_highlight_colour_stays_warm_even_when_the_cover_accent_is_pink_or_green(): void
+    {
+        foreach (['#f7cfdd', '#22c55e', '#3b82f6'] as $accent) {
+            $gold = Theme::fromColors('#7c3aed', null, $accent)->gold();
+            [$h] = Color::toHsl($gold);
+            $this->assertTrue($h >= 10 && $h <= 70, "{$accent} -> " . Color::toHex($gold));
+        }
+        $orange = Theme::fromColors('#7c3aed', null, '#f08a3c')->gold();
+        $this->assertLessThan(15, Color::hueDistance($orange, [240, 138, 60]));
+    }
 }

@@ -137,12 +137,18 @@ final class Theme
         return new self($primary, $secondary, $accent, $from, $to, $text);
     }
 
-    /** A saturated, light version of the accent: reads as "gold" on dark backgrounds. */
+    /**
+     * The highlight colour for text and rims on dark backgrounds. Warm accents (red-orange to yellow) are kept and
+     * brightened; anything else (pink, green, blue) would read as odd "gold", so those fall back to a classic gold.
+     */
     public function gold(): array
     {
         [$h, $s, $l] = Color::toHsl($this->accent);
+        if ($h >= 10 && $h <= 70 && $s >= 0.25) {
+            return Color::fromHsl($h, max($s, 0.85), max(0.58, min($l, 0.68)));
+        }
 
-        return Color::fromHsl($h, max($s, 0.85), max(0.58, min($l, 0.68)));
+        return [250, 204, 82];
     }
 
     /**
