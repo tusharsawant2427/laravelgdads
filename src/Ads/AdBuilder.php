@@ -199,6 +199,12 @@ final class AdBuilder
         return $this;
     }
 
+    /** The template in use (chosen by subject() or set with template()), or null. Useful to log or store per book. */
+    public function templateName(): ?string
+    {
+        return $this->spec->template;
+    }
+
     /** Handwritten line on a brush stroke above the title (companion layout). */
     public function tagline(?string $text): self
     {
@@ -479,7 +485,12 @@ final class AdBuilder
         }
 
         if ($spec->template !== null) {
-            TemplateLibrary::paint($spec->template, $canvas, $spec->scriptFontPath ? new Typography($spec->scriptFontPath) : null);
+            TemplateLibrary::paint(
+                $spec->template,
+                $canvas,
+                $spec->scriptFontPath ? new Typography($spec->scriptFontPath) : null,
+                $layout instanceof TemplateLayout ? $layout->reserveRight($spec, $heading) : 0
+            );
         } elseif ($aiImage !== null) {
             $spec->textPanel ??= !$layout instanceof PromoLayout && $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
             // With a panel behind the text the photo can stay brighter and more visible.

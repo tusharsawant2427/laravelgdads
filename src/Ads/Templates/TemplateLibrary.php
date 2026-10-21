@@ -48,9 +48,9 @@ private const PALETTE = [
         'sunrise-maths' => ['ink' => '#5a2a1c', 'accent' => '#ee6a2a', 'zone' => [2.25, 2.0], 'compact' => [2.0, 1.15]],
         'forest-biology' => ['ink' => '#1f4a28', 'accent' => '#3f9a3e', 'zone' => [1.5, 1.7], 'compact' => [1.1, 1.2]],
         'ocean-globe' => ['ink' => '#0f4a5c', 'accent' => '#0e92b0', 'zone' => [1.5, 1.5], 'compact' => [1.5, 1.25]],
-        'navy-success' => ['ink' => '#ffffff', 'accent' => '#f6b823', 'zone' => [1.7, 1.6], 'compact' => [1.25, 1.5]],
-        'cream-stationery' => ['ink' => '#4a3520', 'accent' => '#e08a2a', 'zone' => [1.6, 1.8], 'compact' => [1.2, 1.2]],
-        'rose-celebration' => ['ink' => '#5a2040', 'accent' => '#e0457a', 'zone' => [1.5, 1.5], 'compact' => [1.4, 1.3]],
+        'navy-success' => ['ink' => '#ffffff', 'accent' => '#f6b823', 'zone' => [1.7, 1.6], 'compact' => [1.25, 1.7]],
+        'cream-stationery' => ['ink' => '#4a3520', 'accent' => '#e08a2a', 'zone' => [1.6, 1.8], 'compact' => [1.2, 1.55]],
+        'rose-celebration' => ['ink' => '#5a2040', 'accent' => '#e0457a', 'zone' => [1.5, 1.5], 'compact' => [1.4, 1.55]],
         'blueprint-dark' => ['ink' => '#ffffff', 'accent' => '#ffd24a', 'zone' => [1.9, 1.9], 'compact' => [1.0, 1.0]],
         'sunny-rocket' => ['ink' => '#1c4a78', 'accent' => '#f08a1e', 'zone' => [1.1, 1.6], 'compact' => [0.5, 1.2]],
         'mint-graph-paper' => ['ink' => '#1c4a38', 'accent' => '#2ca066', 'zone' => [1.9, 1.9], 'compact' => [1.6, 1.25]],
@@ -90,21 +90,21 @@ private const PALETTE = [
         'sky-atom' => ['physics'], 'blue-waves-atom' => ['physics'], 'aqua-atom' => ['physics'], 'cradle-blue' => ['physics'],
         'magnet-purple' => ['physics'], 'prism-rainbow' => ['physics'], 'peach-physics' => ['physics'], 'doodle-grid' => ['physics', 'maths'],
         'yellow-projectile' => ['physics', 'maths'], 'blueprint-dark' => ['physics', 'computer'], 'books-emc2' => ['physics', 'general'],
-        'mint-chemistry' => ['chemistry'], 'aqua-hex' => ['chemistry', 'general'], 'amber-chemistry' => ['chemistry'],
-        'forest-biology' => ['biology'], 'green-leaves' => ['biology', 'environment'], 'peach-leaves' => ['biology', 'languages', 'general'],
+        'mint-chemistry' => ['chemistry'], 'aqua-hex' => ['general', 'chemistry'], 'amber-chemistry' => ['chemistry'],
+        'forest-biology' => ['biology'], 'green-leaves' => ['biology', 'environment'], 'peach-leaves' => ['general', 'biology', 'languages'],
         'bulb-leaves' => ['biology', 'reasoning'],
         'sunrise-maths' => ['maths'], 'mint-graph-paper' => ['maths', 'maths-advanced'], 'green-graph' => ['maths'],
         'chalk-calculus' => ['maths-advanced'], 'violet-algebra' => ['maths-advanced'],
-        'ink-letters' => ['languages'], 'rose-bubbles' => ['languages'], 'lavender-books' => ['languages', 'general'],
-        'cream-stationery' => ['languages', 'general'], 'lavender-notebook' => ['languages', 'general'],
+        'ink-letters' => ['languages'], 'rose-bubbles' => ['languages'], 'lavender-books' => ['general', 'languages'],
+        'cream-stationery' => ['general', 'languages'], 'lavender-notebook' => ['general', 'languages'],
         'parchment-history' => ['history'], 'sepia-pillars' => ['history', 'civics'],
         'ocean-globe' => ['geography'], 'terrain-explorer' => ['geography'],
         'scales-justice' => ['civics'],
         'gold-finance' => ['commerce'], 'green-ledger' => ['commerce'],
         'circuit-tech' => ['computer'], 'code-screen' => ['computer'],
-        'brain-calm' => ['psychology'], 'lavender-bubbles' => ['psychology', 'general'],
-        'palette-splash' => ['art'], 'crayon-bright' => ['art'], 'yellow-brush' => ['art', 'general'],
-        'puzzle-bulb' => ['reasoning'], 'teal-exam-clock' => ['reasoning', 'general'],
+        'brain-calm' => ['psychology'], 'lavender-bubbles' => ['general', 'psychology'],
+        'palette-splash' => ['art'], 'crayon-bright' => ['art'], 'yellow-brush' => ['general', 'art'],
+        'puzzle-bulb' => ['reasoning'], 'teal-exam-clock' => ['general', 'reasoning'],
         'sports-field' => ['sports'], 'defence-shield' => ['sports'],
         'water-green' => ['environment'], 'earth-clean' => ['environment'],
         'coral-waves' => ['general'], 'navy-success' => ['general'], 'rose-celebration' => ['general'],
@@ -123,8 +123,9 @@ private const PALETTE = [
      *
      * @return array{0:int,1:int}
      */
-    public static function zone(string $name, int $w, int $h): array
+    public static function zone(string $name, int $w, int $h, int $reserveRight = 0): array
     {
+        $w -= max(0, $reserveRight);
         $p = self::PALETTE[$name] ?? throw new \InvalidArgumentException("Unknown template [{$name}].");
         [$l, $r] = ($w / max(1, $h) < self::WIDE && isset($p['compact'])) ? $p['compact'] : $p['zone'];
 
@@ -139,7 +140,12 @@ private const PALETTE = [
             throw new \InvalidArgumentException("Unknown group [{$group}]. Available: " . implode(', ', Subjects::GROUPS) . '.');
         }
 
-        return array_values(array_filter(array_keys(self::PALETTE), fn ($n) => in_array($group, self::TAGS[$n] ?? [], true)));
+        $names = array_values(array_filter(array_keys(self::PALETTE), fn ($n) => in_array($group, self::TAGS[$n] ?? [], true)));
+
+        // Templates made for this group first (it is their first tag), borrowed ones after: the default pick is the closest match.
+        usort($names, fn ($a, $b) => array_search($group, self::TAGS[$a]) <=> array_search($group, self::TAGS[$b]));
+
+        return $names;
     }
 
     /** @return array<string, string[]> group => template names */
@@ -182,10 +188,14 @@ private const PALETTE = [
         return ['ink' => Color::fromHex($p['ink']), 'accent' => Color::fromHex($p['accent']), 'zone' => $p['zone']];
     }
 
-    public static function paint(string $name, Canvas $c, ?Typography $script = null): void
+    /**
+     * @param int $reserveRight pixels at the right edge left free of illustration (the fixed button slot): the artwork is
+     *                          laid out as if the canvas were that much narrower, the background still fills the slot
+     */
+    public static function paint(string $name, Canvas $c, ?Typography $script = null, int $reserveRight = 0): void
     {
         self::palette($name);   // validates the name
-        $w = $c->width();
+        $w = $c->width() - max(0, $reserveRight);
         $h = $c->height();
         $script ??= new Typography(dirname(__DIR__, 3) . '/resources/fonts/LiberationSerif-BoldItalic.ttf');
         $method = 't' . str_replace('-', '', ucwords($name, '-'));

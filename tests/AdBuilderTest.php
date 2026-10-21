@@ -763,11 +763,31 @@ final class AdBuilderTest extends TestCase
         TemplateLibrary::forGroup('nope');
     }
 
+    public function test_default_pick_is_a_template_made_for_the_subject_not_a_borrowed_one(): void
+    {
+        $expect = ['Physics' => 'physics', 'Alegbra' => 'maths-advanced', 'Water Security' => 'environment', 'Computer Science - II' => 'computer',
+            'Accounts' => 'commerce', 'Calculus' => 'maths-advanced', 'Value Education' => 'psychology', 'Drawing and Colouring' => 'art',
+            'General Knowlegde' => 'reasoning', 'Defence Studies' => 'sports', 'Marathi' => 'languages', 'Sociology' => 'civics'];
+        foreach ($expect as $label => $group) {
+            $first = TemplateLibrary::pickFor($label, 0);
+            $this->assertSame($group, $this->primaryGroup($first), "{$label} -> {$first}");
+        }
+    }
+
+    private function primaryGroup(string $template): string
+    {
+        $tags = (new \ReflectionClass(TemplateLibrary::class))->getReflectionConstant('TAGS')->getValue();
+
+        return $tags[$template][0];
+    }
+
     public function test_builder_subject_chooses_the_template_and_renders(): void
     {
         $ad = fn (string $label, int $v = 0) => AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->subject($label, $v)
             ->headline('Notes')->cta('Buy now');
 
+        $this->assertContains($ad('Calculus')->templateName(), TemplateLibrary::forGroup('maths-advanced'));
+        $this->assertNull(AdBuilder::make()->templateName());
         $physics = $ad('Physics')->toPng();
         $this->assertSame([1200, 200], [imagesx($this->decode($physics)), imagesy($this->decode($physics))]);
         $this->assertNotSame($physics, $ad('Physics', 1)->toPng(), 'a different variant is a different template');
@@ -784,5 +804,38 @@ final class AdBuilderTest extends TestCase
                 $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], "{$name} {$w}x{$h}");
             }
         }
+    }
+
+    public function test_the_button_is_in_the_same_place_on_every_template(): void
+    {
+        $cover = $this->packshot();
+        $boxes = [];
+        foreach (TemplateLibrary::names() as $name) {
+            $theme = TemplateLibrary::palette($name);
+            $img = $this->decode(AdBuilder::make()->size(1200, 200)->images($cover)->template($name)->headline('Notes')->cta('Buy now')->toPng());
+
+            // Follow the accent-coloured pill leftwards from the right edge, on a row above the label text. (Artwork can use the
+            // same colour elsewhere, so only the contiguous run that ends at the button counts.)
+            $accent = Color::toHex($theme['accent']);
+            $maxX = -1;
+            for ($x = 1199; $x >= 700; $x--) {
+                if (Color::toHex($this->rgb($img, $x, 70)) === $accent) {
+                    $maxX = $x;
+                    break;
+                }
+            }
+            $minX = $maxX;
+            while ($minX > 700 && Color::toHex($this->rgb($img, $minX - 1, 70)) === $accent) {
+                $minX--;
+            }
+            $this->assertGreaterThan(0, $maxX, "{$name}: the button is drawn");
+            $boxes[$name] = [$minX, $maxX];
+        }
+
+        $rights = array_unique(array_column($boxes, 1));
+        $lefts = array_unique(array_column($boxes, 0));
+        $this->assertCount(1, $rights, 'the button always ends at the same x: ' . json_encode($boxes));
+        $this->assertCount(1, $lefts, 'and starts at the same x');
+        $this->assertLessThanOrEqual(1200 - 18, reset($rights), 'flush to the right edge with a margin');
     }
 }

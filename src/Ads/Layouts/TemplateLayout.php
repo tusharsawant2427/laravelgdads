@@ -19,11 +19,35 @@ final class TemplateLayout extends AbstractLayout
     {
     }
 
+    /** Button height as a share of the canvas height. */
+    private const CTA_HEIGHT = 0.36;
+
+    /** Gap between the button and the right edge, and between the artwork and the button, as a share of the height. */
+    private const CTA_MARGIN = 0.1;
+
+    /**
+     * Width of the strip at the right edge that belongs to the button, 0 without one. The button is always flush right and
+     * vertically centred, so it sits in the same place on every template; the artwork is painted left of this strip.
+     */
+    public function reserveRight(AdSpec $spec, Typography $headingFont): int
+    {
+        return $spec->cta ? $this->ctaWidth($spec, $headingFont) + (int) round($spec->height * self::CTA_MARGIN * 2) : 0;
+    }
+
+    private function ctaWidth(AdSpec $spec, Typography $headingFont): int
+    {
+        $ch = (int) round($spec->height * self::CTA_HEIGHT);
+        $label = $headingFont->measure((string) $spec->cta, max(10, (int) round($ch * 0.4)))[0] + (int) round($ch * 0.9);
+
+        return min(max($label, (int) round($spec->height * 0.8)), (int) round($spec->width * 0.3));
+    }
+
     public function render(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
     {
         $w = $spec->width;
         $h = $spec->height;
-        [$x0, $x1] = TemplateLibrary::zone($this->template, $w, $h);
+        $reserve = $this->reserveRight($spec, $headingFont);
+        [$x0, $x1] = TemplateLibrary::zone($this->template, $w, $h, $reserve);
         $m = (int) round($h * 0.08);
         $ink = $theme->text;
 
@@ -41,22 +65,19 @@ final class TemplateLayout extends AbstractLayout
             }
         }
 
-        // Button at the right end of the zone, text between.
-        $ctaW = 0;
+        // The button: fixed position, flush right, centred vertically.
         if ($spec->cta) {
-            $ch = (int) round($h * 0.36);
-            $probe = $headingFont->measure($spec->cta, max(10, (int) round($ch * 0.4)))[0] + (int) round($ch * 0.9);
-            $ctaW = min($probe, (int) (($x1 - $x0) * 0.32));
-            $this->cta($canvas, $spec, $theme, $headingFont, $x1 - $ctaW, (int) round(($h - $ch) / 2), $ctaW, $ch, 'right');
-            $ctaW += (int) round($h * 0.18);
+            $ch = (int) round($h * self::CTA_HEIGHT);
+            $cw = $this->ctaWidth($spec, $headingFont);
+            $this->cta($canvas, $spec, $theme, $headingFont, $w - (int) round($h * self::CTA_MARGIN) - $cw, (int) round(($h - $ch) / 2), $cw, $ch, 'right');
         }
 
         $tx = $x0 + $productW;
-        $tw = $x1 - $ctaW - $tx;
+        $tw = $x1 - $tx;
         $copy = clone $spec;
         $copy->textPanel = false;
         $copy->textShadow = false;
         $copy->textAlign = $spec->textAlign ?? 'left';
-        $this->textColumn($canvas, $copy, $theme, $headingFont, $bodyFont, $tx, $m, $tw, $h - 2 * $m, 'left', $ink, false);
+        $this->textColumn($canvas, $copy, $theme, $headingFont, $bodyFont, $tx, $m, max(20, $tw), $h - 2 * $m, 'left', $ink, false);
     }
 }

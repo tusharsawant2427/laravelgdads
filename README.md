@@ -107,7 +107,8 @@ Science` and `History + Geography` on history, geography and civics, and a mix o
 studies + science ...) on the `general` pool. A subject the catalogue does not know falls back to `general`: add it to
 `Subjects::MAP`. The full table is in [docs/subjects.md](docs/subjects.md).
 
-Text and button colours come from the template. Below 7:1 (such as 1200x200) the secondary doodles are dropped so the
+Text and button colours come from the template. The call-to-action button is fixed: on every template it sits flush
+right, vertically centred and at the same size, and the illustration is painted to the left of it, so nothing covers the button. Below 7:1 (such as 1200x200) the secondary doodles are dropped so the
 content fits. `php examples/templates.php` writes every template as a background and as a complete strip.
 
 ## Companion layout (light, illustrated)
