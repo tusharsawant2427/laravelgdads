@@ -380,7 +380,7 @@ final class AdBuilderTest extends TestCase
         $ad()->toPng();
 
         $this->assertCount(1, $calls, 'second render uses the disk cache');
-        $this->assertSame([768, 448], [$calls[0][1], $calls[0][2]], 'landscape source size');
+        $this->assertSame([704, 384], [$calls[0][1], $calls[0][2]], 'landscape source size');
 
         [$r, $g, $b] = $this->rgb($img, 5, 5);
         $this->assertLessThan(150, ($r + $g + $b) / 3, 'scrim darkens a bright AI image so white text stays readable');
@@ -411,9 +411,9 @@ final class AdBuilderTest extends TestCase
         $this->assertSame([1152, 192], AiBackground::dimensions(6.0));
         $this->assertSame([1024, 256], AiBackground::dimensions(4.0));
         $this->assertSame([960, 320], AiBackground::dimensions(3.03));
-        $this->assertSame([768, 448], AiBackground::dimensions(1.9));
-        $this->assertSame([448, 768], AiBackground::dimensions(0.56));
-        $this->assertSame([640, 640], AiBackground::dimensions(1.0));
+        $this->assertSame([704, 384], AiBackground::dimensions(1.9));
+        $this->assertSame([384, 704], AiBackground::dimensions(0.56));
+        $this->assertSame([576, 576], AiBackground::dimensions(1.0));
         $this->assertSame('deep purple', Color::name([70, 20, 110]));
     }
 

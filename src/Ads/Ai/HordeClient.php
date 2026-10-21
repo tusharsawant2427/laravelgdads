@@ -29,7 +29,9 @@ final class HordeClient
     /**
      * Generate one image and return it as a GdImage.
      *
-     * @param array{steps?:int,cfg_scale?:float,sampler_name?:string,models?:string[],seed?:string,negative?:string,nsfw?:bool,karras?:bool} $options
+     * @param array{steps?:int,cfg_scale?:float,sampler_name?:string,models?:string[],seed?:string,negative?:string,nsfw?:bool,karras?:bool,source?:GdImage,mask?:GdImage,processing?:string,denoising?:float} $options
+     *        'source' + 'processing' ('inpainting', 'outpainting' or 'img2img') start from an image; for inpainting the
+     *        transparent pixels of 'source' (or the white pixels of 'mask') are the area the model repaints.
      */
     public function generate(string $prompt, int $width, int $height, array $options = []): GdImage
     {
@@ -55,6 +57,16 @@ final class HordeClient
         ];
         if (!empty($options['models'])) {
             $payload['models'] = array_values($options['models']);
+        }
+        if (isset($options['source'])) {
+            $payload['source_image'] = self::encode($options['source']);
+            $payload['source_processing'] = $options['processing'] ?? 'inpainting';
+            if (isset($options['mask'])) {
+                $payload['source_mask'] = self::encode($options['mask']);
+            }
+            if (isset($options['denoising'])) {
+                $payload['params']['denoising_strength'] = $options['denoising'];
+            }
         }
 
         $job = $this->request('POST', '/generate/async', $payload);
@@ -83,6 +95,16 @@ final class HordeClient
         }
 
         return $this->decode($generation['img']);
+    }
+
+    /** PNG, base64: keeps the alpha channel that inpainting uses as its mask. */
+    private static function encode(GdImage $image): string
+    {
+        imagesavealpha($image, true);
+        ob_start();
+        imagepng($image, null, 6);
+
+        return base64_encode((string) ob_get_clean());
     }
 
     /** Horde sizes must be multiples of 64. */

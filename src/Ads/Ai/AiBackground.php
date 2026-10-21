@@ -115,7 +115,8 @@ final class AiBackground
     }
 
     /**
-     * Sizes SD models handle well (multiples of 64, about 0.2-0.3 megapixels), picked from the target aspect ratio.
+     * Sizes SD models handle well (multiples of 64), picked from the target aspect ratio. The defaults stay under
+     * 576x576 pixels in area, the limit the AI Horde applies to keys without kudos; ->hires needs a key with kudos.
      * Wide banners are generated natively wide (6:1, 4:1, 3:1) rather than cropped from a landscape photo.
      *
      * @return array{0:int,1:int}
@@ -126,9 +127,9 @@ final class AiBackground
             $aspect >= 5.0 => $hires ? [1536, 256] : [1152, 192],
             $aspect >= 3.6 => $hires ? [1280, 320] : [1024, 256],
             $aspect >= 2.4 => $hires ? [1152, 384] : [960, 320],
-            $aspect >= 1.25 => $hires ? [1024, 576] : [768, 448],
-            $aspect <= 0.8 => $hires ? [576, 1024] : [448, 768],
-            default => $hires ? [832, 832] : [640, 640],
+            $aspect >= 1.25 => $hires ? [1024, 576] : [704, 384],
+            $aspect <= 0.8 => $hires ? [576, 1024] : [384, 704],
+            default => $hires ? [832, 832] : [576, 576],
         };
     }
 
