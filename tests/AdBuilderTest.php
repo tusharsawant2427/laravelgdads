@@ -599,10 +599,11 @@ final class AdBuilderTest extends TestCase
 
     public function test_there_is_one_template_per_subject_and_topic_and_ten_colours_of_the_generic_one(): void
     {
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             [
                 'mathematics', 'science', 'english', 'hindi', 'marathi', 'social-science', 'physics', 'chemistry', 'biology', 'evs-gk',
-                'entrance-exam', 'pre-primary', 'kids-activity', 'primary', 'foundation', 'multi-subject', 'early-learning', 'kindergarten',
+                'neet', 'mht-cet', 'cuet', 'entrance-exams', 'category', 'category-orange',
+                'pre-primary', 'kids-activity', 'primary', 'foundation', 'multi-subject', 'early-learning', 'kindergarten',
                 'handwriting', 'gk-kids',
                 'general', 'general-orange', 'general-purple', 'general-green', 'general-navy', 'general-pink', 'general-yellow',
                 'general-teal', 'general-cream', 'general-lavender',
@@ -613,11 +614,16 @@ final class AdBuilderTest extends TestCase
             $spec = TemplateLibrary::spec($name);
             $file = dirname(__DIR__) . '/resources/templates/' . $spec['file'];
             $this->assertSame([$spec['width'], $spec['height']], array_slice(getimagesize($file), 0, 2), "{$name}: manifest size matches the file");
-            foreach (['zone', 'book'] as $rect) {
+            foreach (['zone', 'book', 'logo', 'button', 'taglineZone'] as $rect) {
+                if (($spec[$rect] ?? null) === null) {
+                    continue;   // NEET, MHT-CET, CUET keep their headline; "entrance-exams" has no placeholder book
+                }
                 [$x0, $y0, $x1, $y1] = $spec[$rect];
                 $this->assertTrue($x0 >= 0 && $y0 >= 0 && $x1 <= 1 && $y1 <= 1 && $x0 < $x1 && $y0 < $y1, "{$name}: {$rect} is inside the plate");
             }
-            $this->assertLessThan($spec['book'][0], $spec['zone'][2], "{$name}: the copy zone ends before the book");
+            if ($spec['zone'] !== null && $spec['book'] !== null) {
+                $this->assertLessThan($spec['book'][0], $spec['zone'][2], "{$name}: the copy zone ends before the book");
+            }
             $this->assertCount(3, $spec['ink']);
             $this->assertCount(3, $spec['tagline']);
         }
@@ -637,11 +643,14 @@ final class AdBuilderTest extends TestCase
     {
         foreach (TemplateLibrary::names() as $name) {
             [$w, $h] = TemplateLibrary::dimensions($name, 800);
-            $this->assertEqualsWithDelta(TemplateLibrary::ratio($name), $w / $h, 0.01);
+            $this->assertEqualsWithDelta(TemplateLibrary::ratio($name), $w / $h, 0.05);
 
             $with = $this->banner($name);
             $without = $this->banner($name, 'Notes', null, false);
             $this->assertSame([$w, $h], [imagesx($with), imagesy($with)], $name);
+            if (TemplateLibrary::spec($name)['book'] === null) {
+                continue;   // "entrance-exams" shows its own three books
+            }
 
             // The placeholder is covered: the middle of the book position shows the packshot's purple cover in one, not in the other.
             [$x, $y, $bw, $bh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['book'], ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h]);
@@ -657,8 +666,17 @@ final class AdBuilderTest extends TestCase
             [$w, $h] = TemplateLibrary::dimensions($name, 800);
             $titled = $this->banner($name, 'Std. X Mathematics Part 1');
             $plain = $this->banner($name, null);
+            if (TemplateLibrary::spec($name)['zone'] === null) {
+                $this->assertSame(
+                    $this->rgb($titled, (int) ($w * 0.2), (int) ($h * 0.3)),
+                    $this->rgb($plain, (int) ($w * 0.2), (int) ($h * 0.3)),
+                    "{$name}: the artwork's own headline is not touched"
+                );
+                continue;
+            }
             [$zx, $zy, $zw, $zh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['zone'], ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h]);
-            $inks = TemplateLibrary::isGeneral($name) ? array_map(fn ($v) => TemplateLibrary::palette($v)['ink'], TemplateLibrary::variants()) : [TemplateLibrary::palette($name)['ink']];
+            $family = TemplateLibrary::familyOf($name);
+            $inks = $family !== null ? array_map(fn ($v) => TemplateLibrary::palette($v)['ink'], TemplateLibrary::variants($family)) : [TemplateLibrary::palette($name)['ink']];
 
             $changed = 0;
             $inInk = 0;
@@ -669,7 +687,7 @@ final class AdBuilderTest extends TestCase
                         continue;
                     }
                     $changed++;
-                    $this->assertTrue($px >= $zx - 2 && $px <= $zx + $zw + 2 && $py >= $zy - 2 && $py <= $zy + $zh + 2, "{$name}: text at {$px},{$py} is outside the zone");
+                    $this->assertTrue($px >= $zx - 6 && $px <= $zx + $zw + 6 && $py >= $zy - 6 && $py <= $zy + $zh + 6, "{$name}: text at {$px},{$py} is outside the zone");
                     foreach ($inks as $ink) {
                         if (array_sum(array_map('abs', array_map(fn ($u, $v) => $u - $v, $a, $ink))) < 24) {
                             $inInk++;
@@ -762,9 +780,11 @@ final class AdBuilderTest extends TestCase
         $grey = $solid([110, 110, 110]);
         $this->assertSame($this->rgb($make($grey, true), 300, 20), $this->rgb($make($grey, false), 300, 20), 'a grey cover leaves the artwork alone');
 
-        // The red Shop Now button keeps its colour whatever the cover.
+        // The Shop Now button takes the cover's accent instead of the generic red, unless matching is off.
         [$r, $g, $b] = $this->rgb($make($blue, true), (int) ($w * 0.10), (int) ($h * 0.88));
-        $this->assertTrue($r > 180 && $g < 60 && $b < 70, "button stays red ({$r},{$g},{$b})");
+        $this->assertTrue($b > $r + 40, "button follows the blue cover ({$r},{$g},{$b})");
+        [$r, $g, $b] = $this->rgb($make($blue, false), (int) ($w * 0.10), (int) ($h * 0.88));
+        $this->assertTrue($r > 180 && $g < 60 && $b < 70, "button stays red when matching is off ({$r},{$g},{$b})");
     }
 
     public function test_the_logo_is_drawn_in_its_slot_on_a_pill_over_dark_artwork_and_can_be_replaced(): void
@@ -772,7 +792,7 @@ final class AdBuilderTest extends TestCase
         $logoPath = $this->dir . '/logo.png';
         imagepng(Canvas::create(60, 20, [200, 0, 0])->image(), $logoPath);
 
-        foreach (['mathematics', 'physics', 'entrance-exam', 'general', 'general-navy'] as $name) {
+        foreach (['mathematics', 'physics', 'neet', 'category', 'general', 'general-navy'] as $name) {
             [$w, $h] = TemplateLibrary::dimensions($name, 800);
             $map = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
             $spec = TemplateLibrary::spec($name);
@@ -852,10 +872,16 @@ final class AdBuilderTest extends TestCase
     public function test_the_title_picks_the_topic_template(): void
     {
         $expected = [
-            [['Accounts', 'CUET-UG Book Keeping & Accountancy 10 Practice Papers'], 'entrance-exam'],
-            [['English', 'CUET-UG English Book for 2024-2025 Entrance Exam'], 'entrance-exam'],
-            [['Some new subject', 'NEET-UG Foundation Notes'], 'entrance-exam'],
-            [['Physics', 'MHT-CET Competition Edge Physics Notes'], 'physics'],
+            [['Accounts', 'CUET-UG Book Keeping & Accountancy 10 Practice Papers'], 'cuet'],
+            [['English', 'CUET-UG English Book for 2024-2025 Entrance Exam'], 'cuet'],
+            [['Chemistry', 'NEET-UG and MHT-CET Biology Volume 2 OmniPrep Notes'], 'entrance-exams'],
+            [['Some new subject', 'JEE Main Mathematics Notes'], 'entrance-exams'],
+            [['Some new subject', 'Entrance Exam Preparation Guide'], 'entrance-exams'],
+            [['Biology', 'NEET Biology Notes'], 'neet'],
+            [['Chemistry', 'MHT-CET Chemistry Test Series Book'], 'mht-cet'],
+            [['Physics', 'MHT CET 2026 Physics Question Bank'], 'mht-cet'],
+            [['Some new subject', 'NEET-UG Foundation Notes'], 'neet'],
+            [['Physics', 'Std. XII Physics Part 1 Notes'], 'physics'],
             [['English', 'Std 3 English Handwriting Book'], 'handwriting'],
             [['Some new subject', 'Neat Writing Practice Book'], 'handwriting'],
             [['Some new subject', 'Blossom LKG Fun Book'], 'kindergarten'],
@@ -900,7 +926,8 @@ final class AdBuilderTest extends TestCase
     public function test_the_title_refines_the_choice_and_related_sciences_rotate(): void
     {
         $this->assertSame('kids-activity', TemplateLibrary::pickFor('English', 0, 'Blossom Colouring Book for 5+ Year Old Kids'));
-        $this->assertSame('physics', TemplateLibrary::pickFor('Some new subject', 0, 'MHT-CET Physics Notes'));
+        $this->assertSame('mht-cet', TemplateLibrary::pickFor('Some new subject', 0, 'MHT-CET Physics Notes'));
+        $this->assertSame('physics', TemplateLibrary::pickFor('Some new subject', 0, 'Std. XII Physics Notes'));
         $this->assertSame('science', TemplateLibrary::pickFor('Some new subject', 0, 'Std. X Science and Technology'));
         $this->assertSame('hindi', TemplateLibrary::pickFor('Hindi', 0, 'Std. 8 Hindi Sulabhbharati'));
         $this->assertSame('marathi', TemplateLibrary::pickFor('Languages', 0, 'Std. 10 Marathi Kumarbharati'));

@@ -2,10 +2,11 @@
 """
 Build the banner template plates in resources/templates/ from the designers' artwork.
 
-    python3 tools/prepare_templates.py SUBJECTS.webp TOPICS.webp VARIANTS.webp
+    python3 tools/prepare_templates.py SUBJECTS.webp TOPICS.webp VARIANTS.webp ENTRANCE.png
 
 SUBJECTS is the 10-up contact sheet of subject templates (Mathematics ... EVS / GK), TOPICS the 10-up sheet of topic templates
-(entrance exam, pre-primary, kids activity ...) and VARIANTS the 10 colour variants of the generic layout (the "general" family).
+(entrance exam, pre-primary, kids activity ...) VARIANTS the 10 colour variants of the generic layout (the "general" family) and ENTRANCE the sheet of entrance-exam templates
+(NEET, MHT-CET, CUET, all entrance exams) and the two category layouts ("[SUBJECT NAME] PREPARATION BOOKS").
 For every template this
 
   * cuts it out of the sheet and trims the white gutter,
@@ -55,7 +56,6 @@ CELLS = {
 
 # Topic templates (second sheet, cells about 1000x262): label tab, copy zone and placeholder book.
 TOPICS = {
-    'entrance-exam':  dict(tab=(0, 0, 282), zone=(60, 77, 520, 151), book=(722, 30, 900, 250)),
     'pre-primary':    dict(tab=(0, 0, 288), zone=(60, 77, 520, 151), book=(672, 28, 872, 250)),
     'kids-activity':  dict(tab=(0, 0, 300), zone=(60, 77, 520, 151), book=(700, 25, 890, 250)),
     'primary':        dict(tab=(0, 0, 322), zone=(68, 77, 520, 151), book=(715, 20, 900, 250)),
@@ -98,6 +98,27 @@ VARIANTS = {
 }
 VARIANT_SIZE = (990, 260)   # every variant is stored at the same size, so the whole family renders at one proportion
 TOPIC_SCALE = 1.0
+
+# Entrance sheet (about 1085x250 cells): rectangles are in the cell, before the gutter trim.
+# NEET / MHT-CET / CUET keep their own headline, tagline, icons and button; only the logo and the book are replaced.
+# "entrance-exams" has three finished books instead of a placeholder, so it takes no cover. The two category layouts take a subject
+# name, a tagline and four feature labels.
+ENTRANCE_ROWS = [(0, 256), (260, 501), (502, 724)]
+ENTRANCE_COLS = [(0, 1085), (1089, 2172)]
+ENTRANCE = {
+    'neet':           dict(cell=(0, 0), logo=(98, 7, 290, 48, 105, 12, 200), book=(703, 3, 880, 252), label=(24, 34, 68, 170), fixed=True),
+    'mht-cet':        dict(cell=(0, 1), logo=(96, 5, 290, 48, 103, 10, 200), book=(693, 12, 868, 250), label=(40, 45, 68, 155), fixed=True),
+    'cuet':           dict(cell=(1, 0), logo=(98, 5, 290, 48, 105, 10, 200), book=(702, 2, 880, 232), label=(36, 46, 70, 160), fixed=True,
+                      wipes=[(344, 127, 355, 149)]),   # a stray "]" after "Universities" in the artwork's tagline,
+    'entrance-exams': dict(cell=(1, 1), logo=(92, 5, 290, 44, 100, 10, 200), book=None, label=None, fixed=True),
+    'category':        dict(cell=(2, 0), logo=(100, 6, 300, 46, 110, 12, 200), book=(712, 3, 892, 205), label=(50, 40, 65, 142),
+                            zone=(106, 44, 462, 84), tagline=(106, 110, 400, 130),
+                            features=[(150, 142, 230, 168), (275, 142, 355, 168), (400, 142, 492, 168), (538, 142, 640, 168)]),
+    'category-orange': dict(cell=(2, 1), logo=(98, 6, 290, 46, 108, 12, 200), book=(698, 3, 882, 205), label=(50, 60, 67, 142),
+                            zone=(104, 44, 450, 84), tagline=(104, 110, 395, 130),
+                            features=[(147, 142, 226, 168), (267, 142, 346, 168), (390, 142, 472, 168), (509, 142, 600, 168)]),
+}
+
 
 def near_white(p):
     return p[0] >= 246 and p[1] >= 246 and p[2] >= 246
@@ -226,6 +247,48 @@ def background_colour(im):
     return round(hue, 1), round(sat, 3)
 
 
+def fill_vertical(im, x0, y0, x1, y1):
+    """Replace a rectangle by a vertical blend of the rows just above and below it (for text with an icon on its left)."""
+    w, h = im.size
+    px = im.load()
+    for x in range(max(3, x0), min(w - 3, x1) + 1):
+        top = [sum(px[xx, y0 - 3][i] for xx in range(x - 2, x + 3)) / 5 for i in range(3)]
+        bot = [sum(px[xx, y1 + 3][i] for xx in range(x - 2, x + 3)) / 5 for i in range(3)]
+        for y in range(y0, y1 + 1):
+            t = (y - y0) / max(1, y1 - y0)
+            px[x, y] = tuple(int(round(top[i] + (bot[i] - top[i]) * t)) for i in range(3))
+    box = (x0 - 2, y0 - 2, x1 + 3, y1 + 3)
+    region = im.crop(box).filter(ImageFilter.GaussianBlur(1.2))
+    mask = Image.new('L', region.size, 0)
+    mp = mask.load()
+    for y in range(region.size[1]):
+        for x in range(region.size[0]):
+            d = min(x, y, region.size[0] - 1 - x, region.size[1] - 1 - y)
+            mp[x, y] = 255 if d >= 4 else int(255 * d / 4)
+    im.paste(region, box[:2], mask)
+
+
+def find_button(im):
+    """The red "Shop Now" pill: bounding box of the strongly red pixels in the lower left of the artwork (rows below the icons)."""
+    w, h = im.size
+    hsv = im.convert('HSV')
+    px = hsv.load()
+    xs, ys = [], []
+    for y in range(int(h * 0.76), h):
+        for x in range(0, int(w * 0.40)):
+            h8, s8, v8 = px[x, y]
+            hue = h8 * 360 / 255
+            if (hue >= 345 or hue <= 10) and s8 / 255 > 0.75 and v8 / 255 > 0.7:
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 200:
+        raise SystemExit('no Shop Now button found')
+    xs.sort()
+    ys.sort()
+    lo, hi = len(xs) // 100, len(xs) - 1 - len(xs) // 100
+    return (xs[lo] - 3, ys[lo] - 3, xs[hi] + 4, ys[hi] + 4)
+
+
 def frac(rect, w, h):
     return [round(rect[0] / w, 5), round(rect[1] / h, 5), round(rect[2] / w, 5), round(rect[3] / h, 5)]
 
@@ -240,14 +303,25 @@ def blank_face(im, rect):
         draw.line([(x0, y), (x1, y)], fill=v)
 
 
-def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_top=False, smooth_bottom=False, logo=None):
+def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_top=False, smooth_bottom=False, logo=None,
+           extra=None, fixed=False):
     """im is at source resolution; rectangles are in its pixels. Returns the manifest entry.
 
-    label: (left, right, top, bottom) inside the book to wipe, or None. size: store the plate at exactly this size.
+    zone: where the headline goes (None when the artwork's own headline stays, as on the NEET banner); book: the placeholder
+    book (None when there is none). label: (left, right, top, bottom) inside the book to wipe, or None. size: store the plate
+    at exactly this size. extra: {'tagline': rect, 'features': [rect, ...]}: more text to wipe and redraw. fixed: the artwork is
+    tied to one subject (its colours are not matched to the cover).
     """
     w, h = im.size
-    title_ink = ink(im, (zone[0], zone[1], zone[2] - 40, zone[1] + (zone[3] - zone[1]) * 5 // 9), zone)
-    tag_ink = ink(im, (zone[0], zone[1] + (zone[3] - zone[1]) * 6 // 9, zone[2] - 40, zone[3]), zone)
+    title_ink = tag_ink = (0, 0, 0)
+    if zone:
+        title_ink = ink(im, (zone[0], zone[1], zone[2] - 40, zone[1] + (zone[3] - zone[1]) * 5 // 9), zone)
+        tag_ink = ink(im, (zone[0], zone[1] + (zone[3] - zone[1]) * 6 // 9, zone[2] - 40, zone[3]), zone)
+    extra = extra or {}
+    for r in extra.get('wipes', []):
+        fill_vertical(im, *r)
+    if extra.get('tagline'):
+        tag_ink = ink(im, extra['tagline'], extra['tagline'])
     if tab:
         clear_tab(im, *tab)
     logo_entry = {}
@@ -256,10 +330,22 @@ def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_
         dark = sum(sum(p) for p in im.crop((erase[0] - 6, erase[1] + 2, erase[0], erase[3])).getdata()) / (3 * max(1, 6 * (erase[3] - erase[1] - 2))) < 110
         fill_patch(im, *erase, halo=(3, 5, 2), smooth_top=True, smooth_bottom=True)
         logo_entry = {'logo': frac((lx, ly, lx + lw, ly + lw / LOGO_ASPECT), w, h), 'logoDark': dark}
-    fill_patch(im, *zone, smooth_top=smooth_top, smooth_bottom=smooth_bottom)
-    if label:
-        fill_patch(im, book[0] + label[0], book[1] + label[2], book[2] - label[1], book[1] + label[3], halo=(3, 3, 3))
-    bx = (book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1])
+    if zone:
+        fill_patch(im, *zone, smooth_top=smooth_top, smooth_bottom=smooth_bottom)
+    entry_extra = {}
+    if extra.get('tagline'):
+        fill_patch(im, *extra['tagline'], halo=(3, 6, 2), smooth_top=True, smooth_bottom=True)
+        entry_extra['taglineZone'] = frac(extra['tagline'], w, h)
+    if extra.get('features'):
+        for r in extra['features']:
+            fill_vertical(im, *r)
+        entry_extra['featureZones'] = [frac(r, w, h) for r in extra['features']]
+    bx = None
+    if book:
+        if label:
+            fill_patch(im, book[0] + label[0], book[1] + label[2], book[2] - label[1], book[1] + label[3], halo=(3, 3, 3))
+        bx = frac((book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1]), w, h)
+    button = find_button(im)
     hue, sat = background_colour(im)
     target = size or (round(w * scale), round(h * scale))
     im = im.resize(target, Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=2))
@@ -268,8 +354,10 @@ def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_
     im.save(os.path.join(OUT, key + '.jpg'), quality=90, optimize=True, subsampling=0)
     return {
         'file': key + '.jpg', 'width': target[0], 'height': target[1],
-        'zone': frac(zone, w, h), 'book': frac(bx, w, h),
+        'zone': frac(zone, w, h) if zone else None, 'book': bx,
         'ink': list(title_ink), 'tagline': list(tag_ink), 'hue': hue, 'saturation': sat, 'lightness': lightness,
+        'button': frac(button, w, h), 'fixed': fixed,
+        **entry_extra,
         **logo_entry,
     }
 
@@ -280,7 +368,7 @@ def cut(sheet, box):
     return im, (lambda r: (r[0] - dx, r[1] - dy, r[2] - dx, r[3] - dy))
 
 
-def main(subjects_path, topics_path, variants_path):
+def main(subjects_path, topics_path, variants_path, entrance_path):
     manifest = {}
 
     sheet = Image.open(subjects_path).convert('RGB')
@@ -295,6 +383,8 @@ def main(subjects_path, topics_path, variants_path):
 
     sheet = Image.open(topics_path).convert('RGB')
     for key, box in TOPIC_CELLS.items():
+        if key not in TOPICS:
+            continue   # 'entrance-exam' (first cell) was replaced by the entrance sheet
         c = TOPICS[key]
         im, sh = cut(sheet, box)
         tab = sh((c['tab'][0], 0, c['tab'][2] + 14, 33))   # the label's shadow runs past the measured edge
@@ -310,6 +400,18 @@ def main(subjects_path, topics_path, variants_path):
                                label=VARIANT_LABEL, size=VARIANT_SIZE, smooth_top=True, smooth_bottom=True,
                                logo=(sh((108, 2, 330, 51)), sh((118, 8, 0, 0))[:2] + (250,)))
 
+    sheet = Image.open(entrance_path).convert('RGB')
+    for key, c in ENTRANCE.items():
+        r, col = c['cell']
+        im, sh = cut(sheet, (ENTRANCE_COLS[col][0], ENTRANCE_ROWS[r][0], ENTRANCE_COLS[col][1], ENTRANCE_ROWS[r][1]))
+        ex0, ey0, ex1, ey1, lx, ly, lw = c['logo']
+        extra = {'wipes': [sh(r) for r in c.get('wipes', [])]}
+        if c.get('tagline'):
+            extra.update({'tagline': sh(c['tagline']), 'features': [sh(f) for f in c['features']]})
+        manifest[key] = finish(im, key, sh(c['zone']) if c.get('zone') else None, sh(c['book']) if c.get('book') else None, None,
+                               label=c['label'], scale=1.0, logo=(sh((ex0, ey0, ex1, ey1)), sh((lx, ly, 0, 0))[:2] + (lw,)),
+                               extra=extra, fixed=c.get('fixed', False))
+
     lines = ["<?php", "", "// Generated by tools/prepare_templates.py: do not edit by hand.", "// zone: headline + tagline area, book: where the product cover goes; both as fractions of the plate.",
              "// hue, saturation, lightness: the background colour family of the artwork (what is recoloured to match a cover, or picks a colour variant).", "", "return ["]
     for key, m in manifest.items():
@@ -321,6 +423,6 @@ def main(subjects_path, topics_path, variants_path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         sys.exit(__doc__)
     main(*sys.argv[1:])

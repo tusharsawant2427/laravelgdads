@@ -79,6 +79,56 @@ final class Recolor
         return $out;
     }
 
+    /**
+     * Repaint the red button inside $rect ([x, y, width, height], pixels) in $accent: strongly red pixels take the accent's hue, and
+     * their saturation and brightness are scaled by the accent's, so the pill keeps its gradient and shadow. White lettering
+     * and the background around the pill (not red) are left alone. $image is changed in place.
+     *
+     * @param int[] $rect
+     * @param int[] $accent [r, g, b]
+     */
+    public static function button(GdImage $image, array $rect, array $accent): void
+    {
+        [$ax, $ay, $aw, $ah] = $rect;
+        [$hue, $sat, $val] = self::hsv($accent[0], $accent[1], $accent[2]);
+        $sScale = $sat / 0.85;
+        $vScale = $val / 0.9;
+        $w = imagesx($image);
+        $h = imagesy($image);
+
+        for ($y = max(0, $ay); $y < min($h, $ay + $ah); $y++) {
+            for ($x = max(0, $ax); $x < min($w, $ax + $aw); $x++) {
+                $c = imagecolorat($image, $x, $y);
+                $r = ($c >> 16) & 255;
+                $g = ($c >> 8) & 255;
+                $b = $c & 255;
+                [$ph, $ps, $pv] = self::hsv($r, $g, $b);
+                if ($ps < 0.45 || $pv < 0.45 || !($ph >= 335 || $ph <= 25)) {
+                    continue;
+                }
+                [$nr, $ng, $nb] = self::rgb($hue, min(1.0, $ps * $sScale), min(1.0, $pv * $vScale));
+                imagesetpixel($image, $x, $y, $nr << 16 | $ng << 8 | $nb);
+            }
+        }
+    }
+
+    /** @return float[] hue 0-360, saturation 0-1, value 0-1 */
+    private static function hsv(int $r, int $g, int $b): array
+    {
+        $max = max($r, $g, $b);
+        $d = $max - min($r, $g, $b);
+        if ($d === 0) {
+            return [0.0, 0.0, $max / 255];
+        }
+        $hue = match ($max) {
+            $r => 60 * ((($g - $b) / $d) + ($g < $b ? 6 : 0)),
+            $g => 60 * ((($b - $r) / $d) + 2),
+            default => 60 * ((($r - $g) / $d) + 4),
+        };
+
+        return [(float) $hue, $d / $max, $max / 255];
+    }
+
     /** @return int[] */
     private static function rgb(float $h, float $s, float $v): array
     {

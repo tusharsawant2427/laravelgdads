@@ -26,7 +26,12 @@ $titles = [
     'chemistry' => ['MHT-CET Triumph Chemistry: Chapter-wise Notes and 6400+ MCQs', null],
     'biology' => ['Std. XII Biology Part 1', null],
     'evs-gk' => ['EVS and General Knowledge Activity Book for Kids', null],
-    'entrance-exam' => ['CUET-UG English Book for 2025-2026 Entrance Exam', 'Chapter-wise practice papers'],
+    'neet' => ['NEET', null],
+    'mht-cet' => ['MHT-CET', null],
+    'cuet' => ['CUET', null],
+    'entrance-exams' => ['Entrance Exams', null],
+    'category' => ['Physics', 'Notes, MCQs and previous year papers'],
+    'category-orange' => ['Std. X Maths', 'Chapter-wise practice for board exams'],
     'pre-primary' => ['Blossom Nursery Rhymes and Alphabet Book', null],
     'kids-activity' => ['Drawing and Colouring Books for Kids | Level 5', null],
     'primary' => ['Std. 3 Computers Workbook', null],
@@ -40,13 +45,13 @@ $titles = [
 ];
 
 foreach (TemplateLibrary::names() as $i => $name) {
-    if ($name !== 'general' && TemplateLibrary::isGeneral($name)) {
+    if (!in_array($name, ['general', 'category', 'category-orange'], true) && TemplateLibrary::familyOf($name) !== null) {
         continue;   // the colour variants are chosen by the cover's colour; 'general' stands for all ten
     }
     [$w, $h] = TemplateLibrary::dimensions($name, 1200);
     [$title, $tagline] = $titles[$name];
     AdBuilder::make()->size($w, $h)->images($covers[$i % count($covers)])->template($name)
-        ->headline($title)->subheadline($tagline)
+        ->headline($title)->subheadline($tagline)->features(['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', 'Previous Years Papers'])
         ->font($argv[2] ?? __DIR__ . '/../resources/fonts/DejaVuSans-Bold.ttf')
         ->save("$out/$name.png");
     echo "$name {$w}x{$h}\n";

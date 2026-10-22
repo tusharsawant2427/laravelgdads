@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.0
+
+### Added
+- Entrance-exam templates `neet`, `mht-cet`, `cuet` and `entrance-exams`, chosen when the label or title mentions the exam (ahead of the
+  subject templates; JEE, several exams or "entrance exam" give `entrance-exams`). They keep their own headline and icons; the cover and
+  the corporate logo are drawn in.
+- Category templates `category` / `category-orange` ("[SUBJECT NAME] PREPARATION BOOKS"): subject name, tagline and four feature
+  labels are drawn (`->features([...])`); the colour variant nearest the cover is used.
+- The Shop Now button is repainted in the cover's hue instead of the generic red (with `matchCoverColour`, the default).
+
+### Removed
+- The old `entrance-exam` topic template.
+
 ## 2.3.0
 
 ### Changed

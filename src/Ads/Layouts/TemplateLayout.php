@@ -6,6 +6,7 @@ use GdImage;
 use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\Support\BookMockup;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
+use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
@@ -34,11 +35,60 @@ final class TemplateLayout extends AbstractLayout
         $match = $spec->matchCoverColour && $theme->primary !== Theme::FALLBACK ? $theme->primary : null;
         $name = TemplateLibrary::resolve($this->template, $match);   // the generic template picks its colour variant here
         $template = TemplateLibrary::spec($name);
-        $map = TemplateLibrary::paint($name, $canvas, $match);
+        $map = TemplateLibrary::paint($name, $canvas, $match, $match === null ? null : $this->buttonColour($theme));
 
         $this->brand($canvas, $spec, TemplateLibrary::rect($template['logo'], $map), $template['logoDark']);
-        $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
+        if ($template['book'] !== null) {
+            $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
+        }
+        if ($template['zone'] === null) {
+            return;   // the artwork has its own headline (NEET, MHT-CET, CUET, all entrance exams)
+        }
+        if (isset($template['taglineZone'])) {
+            $this->category($canvas, $spec, $headingFont, $bodyFont, $map, $template);
+
+            return;
+        }
         $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);
+    }
+
+    /**
+     * The category layout: the subject name in capitals on one line (the artwork says "PREPARATION BOOKS" under it), a tagline, and
+     * up to four feature labels beside their icons. Unused feature slots stay empty.
+     */
+    private function category(Canvas $canvas, AdSpec $spec, Typography $headingFont, Typography $bodyFont, array $map, array $template): void
+    {
+        [$x, $y, $w, $h] = TemplateLibrary::rect($template['zone'], $map);
+        $headline = mb_strtoupper($this->printable((string) $spec->headline, $headingFont));
+        if ($headline !== '') {
+            $fit = $headingFont->fit($headline, $w, $h, $h, 8, 1.0, 1);
+            $canvas->lines($fit['lines'], $headingFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['ink'], 'left', $fit['lineHeight']);
+        }
+
+        $tagline = $this->printable((string) $spec->subheadline, $bodyFont);
+        if ($tagline !== '') {
+            [$x, $y, $w, $h] = TemplateLibrary::rect($template['taglineZone'], $map);
+            $fit = $bodyFont->fit($tagline, $w, $h, (int) round($h * 0.8), 7, 1.1, 1);
+            $canvas->lines($fit['lines'], $bodyFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['tagline'], 'left', $fit['lineHeight']);
+        }
+
+        foreach ($template['featureZones'] as $i => $zone) {
+            $label = $this->printable((string) ($spec->features[$i] ?? ''), $bodyFont);
+            if ($label === '') {
+                continue;
+            }
+            [$x, $y, $w, $h] = TemplateLibrary::rect($zone, $map);
+            $fit = $bodyFont->fit($label, $w, $h, (int) round($h * 0.5), 6, 1.1, 2);
+            $canvas->lines($fit['lines'], $bodyFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['tagline'], 'left', $fit['lineHeight']);
+        }
+    }
+
+    /** The button colour: the cover's own hue, saturated and dark enough for the button's white lettering. */
+    private function buttonColour(Theme $theme): array
+    {
+        [$hue, $saturation] = Color::toHsl($theme->primary);
+
+        return Color::fromHsl($hue, max(0.62, min(0.9, $saturation)), 0.42);
     }
 
     /** The logo, fitted into its slot and anchored to its left edge (so it lines up with the headline); on a white pill over dark artwork. */

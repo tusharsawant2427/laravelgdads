@@ -25,6 +25,9 @@ final class TemplateLibrary
     /** Template for subjects that have none of their own (commerce, computer ...). It comes in ten colours: see resolve(). */
     public const GENERAL = 'general';
 
+    /** The "[SUBJECT NAME] PREPARATION BOOKS" banner for product categories; in two colours. */
+    public const CATEGORY = 'category';
+
     /** Which templates suit a theme group of Subjects. Languages are refined by language, see languages(). */
     private const GROUP_TEMPLATES = [
         'physics' => ['physics'], 'chemistry' => ['chemistry'], 'biology' => ['biology'],
@@ -51,7 +54,8 @@ final class TemplateLibrary
     }
 
     /**
-     * @return array{file:string,width:int,height:int,zone:float[],book:float[],ink:int[],tagline:int[]}
+     * @return array<string, mixed> file, width, height, zone and book (null when the artwork keeps its own headline / has no placeholder book),
+     *                              ink, tagline, hue, saturation, lightness, button, logo, logoDark, fixed, and for the category layouts taglineZone and featureZones
      */
     public static function spec(string $name): array
     {
@@ -90,11 +94,12 @@ final class TemplateLibrary
     /**
      * Paint the artwork over the whole canvas (scaled to cover it, centred) and return how plate fractions map to canvas pixels.
      * With $match (a cover's main colour as [r, g, b]) the background colour of the artwork is moved to that hue; a colourless
-     * cover (white, grey, black) leaves the artwork as designed.
+     * cover (white, grey, black) leaves the artwork as designed. $accent (a button colour as [r, g, b]) repaints the red "Shop Now"
+     * button in that colour.
      *
      * @return array{scale:float,x:float,y:float,width:float,height:float}
      */
-    public static function paint(string $name, Canvas $canvas, ?array $match = null): array
+    public static function paint(string $name, Canvas $canvas, ?array $match = null, ?array $accent = null): array
     {
         $name = self::resolve($name, $match);
         $spec = self::spec($name);
@@ -103,7 +108,7 @@ final class TemplateLibrary
         $scale = max($w / $spec['width'], $h / $spec['height']);
         $pw = $spec['width'] * $scale;
         $ph = $spec['height'] * $scale;
-        $canvas->picture(self::matched($name, $match), 0, 0, $w, $h, 'cover');
+        $canvas->picture(self::matched($name, $match, $accent), 0, 0, $w, $h, 'cover');
 
         return ['scale' => $scale, 'x' => ($w - $pw) / 2, 'y' => ($h - $ph) / 2, 'width' => $pw, 'height' => $ph];
     }
@@ -128,24 +133,37 @@ final class TemplateLibrary
         ];
     }
 
-    /** The ten colour variants of the generic template. @return string[] */
-    public static function variants(): array
+    /** The colour variants of a template family: the ten generic ones by default, or the two 'category' ones. @return string[] */
+    public static function variants(string $family = self::GENERAL): array
     {
-        return array_values(array_filter(self::names(), fn (string $name) => self::isGeneral($name)));
+        return array_values(array_filter(self::names(), fn (string $name) => self::familyOf($name) === $family));
     }
 
     public static function isGeneral(string $name): bool
     {
-        return $name === self::GENERAL || str_starts_with($name, self::GENERAL . '-');
+        return self::familyOf($name) === self::GENERAL;
+    }
+
+    /** 'general' or 'category' for the templates that come in several colours, else null. */
+    public static function familyOf(string $name): ?string
+    {
+        foreach ([self::GENERAL, self::CATEGORY] as $family) {
+            if ($name === $family || str_starts_with($name, $family . '-')) {
+                return $family;
+            }
+        }
+
+        return null;
     }
 
     /**
-     * The template to draw: the generic one becomes the colour variant nearest the cover's main colour (a dark cover prefers
-     * the dark variant); every other name, and a cover without a real colour, stays as asked.
+     * The template to draw: the generic and the category template become the colour variant nearest the cover's main colour (a dark
+     * cover prefers the dark variant); every other name, and a cover without a real colour, stays as asked.
      */
     public static function resolve(string $name, ?array $match): string
     {
-        if (!self::isGeneral($name) || $match === null) {
+        $family = self::familyOf($name);
+        if ($family === null || $match === null) {
             return $name;
         }
         [$hue, $saturation, $lightness] = Color::toHsl($match);
@@ -155,7 +173,7 @@ final class TemplateLibrary
 
         $best = $name;
         $bestScore = INF;
-        foreach (self::variants() as $variant) {
+        foreach (self::variants($family) as $variant) {
             $spec = self::spec($variant);
             $distance = abs(fmod($hue - $spec['hue'] + 540, 360) - 180);
             $score = $distance + (($spec['lightness'] < 0.45) === ($lightness < 0.35) ? 0 : 45);
@@ -181,15 +199,15 @@ final class TemplateLibrary
         $title = $title === null ? '' : trim($title);
         $subjects = Subjects::subjects($label);
 
-        // Titles that say what the book is: children's books, handwriting, "all subjects" ...
+        // Entrance-exam books have their own banners; then titles that say what the book is: children's books, handwriting, "all subjects" ...
+        if (($exam = self::entranceExam($label . ' ' . $title)) !== null) {
+            return [$exam];
+        }
         if (($kids = self::childrensBook(trim($label . ' ' . $title))) !== null) {
             return [$kids];
         }
         if (preg_match('/\b(all subjects|all-in-one|combo)\b/iu', $title) || (count($subjects) > 1 && Subjects::pool($label) === ['general'])) {
             return ['multi-subject'];
-        }
-        if (preg_match('/\bcuet\b|entrance exam/iu', $title)) {
-            return ['entrance-exam'];
         }
         if ($subjects === ['science']) {
             return ['science'];
@@ -216,9 +234,6 @@ final class TemplateLibrary
 
         // Books without a subject template of their own: the topic says more than "general".
         if ($found === [self::GENERAL]) {
-            if (preg_match('/\b(neet|jee|cet)\b/iu', $title)) {
-                return ['entrance-exam'];
-            }
             if (preg_match('/\bfoundation\b/iu', $title)) {
                 return ['foundation'];
             }
@@ -231,6 +246,27 @@ final class TemplateLibrary
         }
 
         return $found;
+    }
+
+    /**
+     * The entrance-exam banner for a label or title: NEET, MHT-CET or CUET have their own; two or more exams, JEE, or just "entrance
+     * exam" use the banner that shows all three. Null when no entrance exam is mentioned.
+     */
+    private static function entranceExam(string $text): ?string
+    {
+        $found = [];
+        foreach (['neet' => '/\bneet\b/iu', 'mht-cet' => '/\bm\.?h\.?t\.?[\s-]*cet\b|\bmht\b|\bcet\b/iu', 'cuet' => '/\bcuet\b/iu'] as $template => $pattern) {
+            if (preg_match($pattern, $text)) {
+                $found[] = $template;
+            }
+        }
+        $other = preg_match('/\bjee\b/iu', $text) === 1;
+
+        return match (true) {
+            count($found) === 1 && !$other => $found[0],
+            $found !== [] || $other || preg_match('/entrance exam/iu', $text) === 1 => 'entrance-exams',
+            default => null,
+        };
     }
 
     /**
@@ -310,12 +346,12 @@ final class TemplateLibrary
         return self::$manifest ??= require dirname(__DIR__, 3) . '/resources/templates/manifest.php';
     }
 
-    /** The artwork, with its background recoloured to $match when that is a real colour. */
-    private static function matched(string $name, ?array $match): GdImage
+    /** The artwork, with its background recoloured to $match when that is a real colour, and its button repainted in $accent. */
+    private static function matched(string $name, ?array $match, ?array $accent): GdImage
     {
         $plate = self::plate($name);
-        if ($match === null || self::isGeneral($name)) {
-            return $plate;   // the generic artwork has a colour variant instead
+        if ($match === null || self::spec($name)['fixed']) {
+            return $plate;   // no cover colour to follow, or artwork tied to one exam (NEET is green)
         }
         [$hue, $saturation] = Color::toHsl($match);
         if ($saturation < 0.18) {
@@ -323,7 +359,20 @@ final class TemplateLibrary
         }
         $spec = self::spec($name);
 
-        return Recolor::hue($plate, $spec['hue'], $spec['saturation'], $hue, max(0.15, min(0.6, $saturation * 0.5)));
+        // The generic artwork has a colour variant instead of a recolouring.
+        $out = self::familyOf($name) !== null ? $plate : Recolor::hue($plate, $spec['hue'], $spec['saturation'], $hue, max(0.15, min(0.6, $saturation * 0.5)));
+        if ($accent !== null) {
+            if ($out === $plate) {
+                $out = imagecreatetruecolor(imagesx($plate), imagesy($plate));
+                imagecopy($out, $plate, 0, 0, 0, 0, imagesx($plate), imagesy($plate));
+            }
+            $width = imagesx($out);
+            $height = imagesy($out);
+            [$x0, $y0, $x1, $y1] = $spec['button'];
+            Recolor::button($out, [(int) floor($x0 * $width), (int) floor($y0 * $height), (int) ceil(($x1 - $x0) * $width), (int) ceil(($y1 - $y0) * $height)], $accent);
+        }
+
+        return $out;
     }
 
     private static function plate(string $name): GdImage

@@ -32,10 +32,12 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 
 ## Templates (subject, topic and colour artwork)
 
-Thirty finished banners, each its own file in `resources/templates/<name>.jpg`:
+Thirty-five finished banners, each its own file in `resources/templates/<name>.jpg`:
 
 - **Subjects:** `mathematics`, `science`, `english`, `hindi`, `marathi`, `social-science`, `physics`, `chemistry`, `biology`, `evs-gk`.
-- **Topics:** `entrance-exam`, `pre-primary`, `kids-activity`, `primary`, `foundation`, `multi-subject`, `early-learning`,
+- **Entrance exams:** `neet`, `mht-cet`, `cuet` (each keeps its own headline, "PREPARATION BOOKS", tagline, icons and button; only the cover and logo are drawn; the colours stay as designed) and `entrance-exams` (NEET / MHT-CET / CUET together, three finished books, no cover).
+- **Categories:** `category` (blue) and `category-orange`: "[SUBJECT NAME] PREPARATION BOOKS" for product categories. `->headline('Physics')->subheadline('Tagline')->features([...up to 4 labels...])`; the one nearest the cover's colour is used.
+- **Topics:** `pre-primary`, `kids-activity`, `primary`, `foundation`, `multi-subject`, `early-learning`,
   `kindergarten`, `handwriting`, `gk-kids`.
 - **Generic, in ten colours:** `general`, `general-orange`, `general-purple`, `general-green`, `general-navy`, `general-pink`,
   `general-yellow`, `general-teal`, `general-cream`, `general-lavender`. Ask for `general` and the variant nearest the cover's
@@ -50,7 +52,7 @@ placeholder and the book are removed, and the library draws
   glyph for are left out instead of printing boxes),
 - an optional tagline (`subheadline`) under it.
 
-The artwork's background colour follows the cover: it is moved to the cover's main colour (the generic template picks the nearest of its
+The Shop Now button takes the cover's hue too (not the generic red). The artwork's background colour follows the cover: it is moved to the cover's main colour (the generic template picks the nearest of its
 ten colours instead). `->matchCoverColour(false)` keeps the colours as designed; white, grey and black covers always do.
 
 ```php
@@ -87,7 +89,8 @@ Subject labels are normalised first (case, spacing, typos such as `Alegbra`, sho
 | General Knowledge (label or title) | `gk-kids` |
 | PCM, PCB, PCMB | rotates through the matching subject templates (by `$variant`) |
 | Title says handwriting / LKG-UKG-KG / nursery-rhymes-alphabet / colouring-drawing-craft (Std 5 and below) | `handwriting` / `kindergarten` / `pre-primary` / `kids-activity` |
-| CUET or "entrance exam" in the title (NEET, JEE, CET for books without a subject template) | `entrance-exam` |
+| NEET / MHT-CET (or CET) / CUET in the label or title | `neet` / `mht-cet` / `cuet` (ahead of the subject: "MHT-CET Physics Notes" gets `mht-cet`) |
+| two or more of those, JEE, or just "entrance exam" | `entrance-exams` |
 | "All subjects", "combo", "all-in-one", or a label that lists several unrelated subjects | `multi-subject` |
 | No subject template and "foundation", Std 1-5 or "primary" in the title | `foundation` / `primary` |
 | Commerce, computer, psychology, art, anything else unknown | `general` (in the cover's colour) |
