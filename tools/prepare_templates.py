@@ -23,11 +23,15 @@ import json
 import os
 import sys
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'resources', 'templates')
 SCALE = 2.0            # sheet cells are small (about 500 px wide); plates are stored at 2x
 HALO = (5, 8, 2)       # how far the patch grows left/right/top, and where its side/top edges are sampled from
+# The placeholder book carries a "[SUBJECT BOOK]" label. A product cover that is narrower than the book (a combo shot, say)
+# would leave part of it showing, so it is wiped from the plate: (left, right, top offset, bottom offset) inside the book.
+LABEL = (10, 6, 24, 60)
+LABEL_TALL = {'social-science': 74}   # its label runs to two lines
 BOOK_PAD = (2, 1)      # grow the book rectangle by this much (x, y) so no placeholder edge peeks out
 
 # key: cell in the sheet, label tab, copy zone, placeholder book
@@ -44,7 +48,9 @@ CELLS = {
     'evs-gk':         dict(cell=(1004, 450, 1617, 667), tab=(0, 0, 298, 32), zone=(46, 72, 358, 127),  book=(410, 28, 531, 210)),
 }
 # The single generic template (no label to remove); here the zone also covers the class/board pill and the tagline underline.
-MASTER = dict(key='general', zone=(180, 138, 935, 352), book=(1179, 52, 1634, 603), width=1400)
+MASTER = dict(key='general', zone=(180, 138, 935, 352), book=(1179, 52, 1634, 603), width=1400,
+              # its book cover is full of placeholders (board logo, edition, [SUBJECT NAME], [PART]): turn the face into a plain page
+              face=(1200, 56, 1630, 586))
 
 
 def near_white(p):
@@ -77,22 +83,23 @@ def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def fill_patch(im, x0, y0, x1, y1):
+def fill_patch(im, x0, y0, x1, y1, halo=None):
     """Replace a rectangle by a Coons patch of its four surrounding edges (smooth gradient, no text).
 
     The lettering sits in a soft halo, so the left, right and top edges are sampled a few pixels outside it; the bottom
     edge cannot move far because the benefit icons start right below the zone.
     """
+    HALO_ = halo or HALO
     w, h = im.size
-    x0, y0, x1, y1 = x0 - HALO[0], y0 - HALO[2], x1 + HALO[0], y1
-    x0, y0 = max(HALO[0] + 2, x0), max(HALO[2] + 2, y0)
-    x1, y1 = min(w - HALO[0] - 3, x1), min(h - 3, y1)
+    x0, y0, x1, y1 = x0 - HALO_[0], y0 - HALO_[2], x1 + HALO_[0], y1
+    x0, y0 = max(HALO_[0] + 2, x0), max(HALO_[2] + 2, y0)
+    x1, y1 = min(w - HALO_[0] - 3, x1), min(h - 3, y1)
     px = im.load()
     avg = lambda pts: tuple(sum(p[i] for p in pts) / len(pts) for i in range(3))
-    top = {x: avg([px[x, y0 - HALO[2]], px[x, y0 - HALO[2] + 1]]) for x in range(x0, x1 + 1)}
+    top = {x: avg([px[x, y0 - HALO_[2]], px[x, y0 - HALO_[2] + 1]]) for x in range(x0, x1 + 1)}
     bot = {x: avg([px[x, y1 + 1], px[x, y1 + 2]]) for x in range(x0, x1 + 1)}
-    lef = {y: avg([px[x0 - HALO[1], y], px[x0 - HALO[1] + 1, y]]) for y in range(y0, y1 + 1)}
-    rig = {y: avg([px[x1 + HALO[1], y], px[x1 + HALO[1] - 1, y]]) for y in range(y0, y1 + 1)}
+    lef = {y: avg([px[x0 - HALO_[1], y], px[x0 - HALO_[1] + 1, y]]) for y in range(y0, y1 + 1)}
+    rig = {y: avg([px[x1 + HALO_[1], y], px[x1 + HALO_[1] - 1, y]]) for y in range(y0, y1 + 1)}
     tl, tr, bl, br = lef[y0], rig[y0], lef[y1], rig[y1]
     out = {}
     for y in range(y0, y1 + 1):
@@ -157,7 +164,17 @@ def frac(rect, w, h):
     return [round(rect[0] / w, 5), round(rect[1] / h, 5), round(rect[2] / w, 5), round(rect[3] / h, 5)]
 
 
-def finish(im, key, zone, book, tab, width=None):
+def blank_face(im, rect):
+    """Paint a book face as a plain, softly graded page."""
+    draw = ImageDraw.Draw(im)
+    x0, y0, x1, y1 = rect
+    for y in range(y0, y1 + 1):
+        t = (y - y0) / max(1, y1 - y0)
+        v = tuple(int(round(a + (b - a) * t)) for a, b in zip((243, 248, 255), (253, 253, 255)))
+        draw.line([(x0, y), (x1, y)], fill=v)
+
+
+def finish(im, key, zone, book, tab, width=None, label_bottom=LABEL[3], face=None):
     """im is at source resolution; rectangles are in its pixels. Returns the manifest entry."""
     w, h = im.size
     title_ink = ink(im, (zone[0], zone[1], zone[2] - 40, zone[1] + (zone[3] - zone[1]) * 5 // 9), zone)
@@ -165,6 +182,10 @@ def finish(im, key, zone, book, tab, width=None):
     if tab:
         clear_tab(im, *tab)
     fill_patch(im, *zone)
+    if face:
+        blank_face(im, face)
+    if label_bottom:
+        fill_patch(im, book[0] + LABEL[0], book[1] + LABEL[2], book[2] - LABEL[1], book[1] + label_bottom, halo=(3, 3, 3))
     bx = (book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1])
     target = (int(width), round(width * h / w)) if width else (round(w * SCALE), round(h * SCALE))
     im = im.resize(target, Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=2))
@@ -184,9 +205,9 @@ def main(sheet_path, master_path):
         cell = sheet.crop(c['cell'])
         im, dx, dy = trim_gutter(cell)
         sh = lambda r: (r[0] - dx, r[1] - dy, r[2] - dx, r[3] - dy)
-        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']))
+        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']), label_bottom=LABEL_TALL.get(key, LABEL[3]))
     master = Image.open(master_path).convert('RGB')
-    manifest[MASTER['key']] = finish(master, MASTER['key'], MASTER['zone'], MASTER['book'], None, MASTER['width'])
+    manifest[MASTER['key']] = finish(master, MASTER['key'], MASTER['zone'], MASTER['book'], None, MASTER['width'], label_bottom=0, face=MASTER['face'])
 
     lines = ["<?php", "", "// Generated by tools/prepare_templates.py: do not edit by hand.", "// zone: headline + tagline area, book: where the product cover goes; both as fractions of the plate.", "", "return ["]
     for key, m in manifest.items():

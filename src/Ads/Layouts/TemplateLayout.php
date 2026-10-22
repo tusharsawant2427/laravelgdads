@@ -52,6 +52,8 @@ final class TemplateLayout extends AbstractLayout
 
         $fit = min($w / $mw, $h / $mh);
         $scale = min(max($w / $mw, $h / $mh), $fit * self::MAX_GROW);
+        $top = max(2, (int) round($canvas->height() * 0.02));   // a tall cover must not run off the top of the banner
+        $scale = min($scale, ($y + $h - $top) / $mh);
         $bw = (int) round($mw * $scale);
         $bh = (int) round($mh * $scale);
         $canvas->sprite($book, $x + intdiv($w, 2), $y + $h - intdiv($bh, 2), $bw, $bh);
@@ -61,8 +63,8 @@ final class TemplateLayout extends AbstractLayout
     private function copy(Canvas $canvas, AdSpec $spec, Typography $headingFont, Typography $bodyFont, array $zone, array $template): void
     {
         [$x, $y, $w, $h] = $zone;
-        $headline = trim((string) $spec->headline);
-        $tagline = trim((string) $spec->subheadline);
+        $headline = $this->printable((string) $spec->headline, $headingFont);
+        $tagline = $this->printable((string) $spec->subheadline, $bodyFont);
         if ($headline === '') {
             return;
         }
@@ -77,6 +79,27 @@ final class TemplateLayout extends AbstractLayout
             $tag = $bodyFont->fit($tagline, $w, $tagH, (int) round($tagH * 0.62), 7, 1.15, 2);
             $canvas->lines($tag['lines'], $bodyFont, $tag['size'], $x, $y + $h - $tagH + intdiv($tagH - $tag['height'], 2), $w, $template['tagline'], 'left', $tag['lineHeight']);
         }
+    }
+
+    /**
+     * Drop the characters the font has no glyph for (Devanagari in a Latin-only display font would print as empty boxes) and
+     * tidy what is left: "Hindi Sulekh 3 (संयुक्ताक्षर) Book" becomes "Hindi Sulekh 3 Book".
+     */
+    private function printable(string $text, Typography $font): string
+    {
+        if (!preg_match('/[^\x00-\x7F]/u', $text)) {
+            return trim($text);
+        }
+        $missing = $font->measure("\u{E000}", 40)[0];   // the width of the font's "no glyph" box
+        $kept = '';
+        foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+            if (ord($char[0]) < 0x80 || $font->measure($char, 40)[0] !== $missing) {
+                $kept .= $char;
+            }
+        }
+        $kept = preg_replace('/\(\s*\)|\[\s*\]/u', '', $kept);
+
+        return trim(preg_replace('/\s{2,}/u', ' ', $kept), " \t-–|:,");
     }
 
     /** A plain white cover carrying the title, for banners made without a product image. */

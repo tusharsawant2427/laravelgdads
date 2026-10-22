@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.1
+
+### Fixed
+- Titles with characters the font cannot draw (Devanagari in a Latin display font) printed empty boxes; those characters are now left out.
+- A language book for kids ("English Grammar Book for 8+ Years' Old Kids") keeps its English / Hindi / Marathi template; only
+  colouring, activity, rhymes, alphabet, nursery and drawing books take the EVS / GK one. The subject decides the language
+  template, not "Marathi Medium" in the title.
+- The placeholder "[SUBJECT BOOK]" label no longer shows beside a cover narrower than the template's book (combo shots), and the
+  generic template's book face is a plain page.
+- A tall cover no longer runs off the top of the banner.
+
 ## 2.0.0
 
 ### Changed (breaking)

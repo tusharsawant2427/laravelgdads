@@ -710,6 +710,27 @@ final class AdBuilderTest extends TestCase
         }
     }
 
+    public function test_characters_the_font_cannot_draw_are_left_out_instead_of_printing_boxes(): void
+    {
+        $make = fn (string $title, string $tagline) => AdBuilder::make()->size(...TemplateLibrary::dimensions('hindi', 600))->images($this->packshot())
+            ->template('hindi')->font($this->font)->headline($title)->subheadline($tagline)->toPng();
+
+        $this->assertSame(
+            $make('Hindi Sulekh 3 Book', 'Based on NCERT Textbook'),
+            $make('Hindi Sulekh 3 (संयुक्ताक्षर ज्ञान) Book', 'Based on NCERT Textbook गंगा')
+        );
+    }
+
+    public function test_a_language_book_for_kids_keeps_its_language_template_but_activity_books_do_not(): void
+    {
+        $this->assertSame('english', TemplateLibrary::pickFor('Grammar', 0, 'English Grammar Book C for 8+ Years\' Old Kids'));
+        $this->assertSame('english', TemplateLibrary::pickFor('Vocabulary', 0, 'Blossom English Vocabulary Book for 5 to 7 Year Old Kids'));
+        $this->assertSame('hindi', TemplateLibrary::pickFor('Some new subject', 0, 'Hindi Sulekh 3 Book for Kids'));
+        $this->assertSame('evs-gk', TemplateLibrary::pickFor('English', 0, 'Alphabet Activity Book for Kids'));
+        $this->assertSame('evs-gk', TemplateLibrary::pickFor('Art and Craft', 0, 'Crafty Minds Art and Craft Book Kits for Senior KG kids'));
+        $this->assertSame('hindi', TemplateLibrary::pickFor('Sanskrit', 0, 'Sanskrit Aamod Notes for English, Semi-English & Marathi Medium'), 'the subject, not the medium, decides');
+    }
+
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
     {
         $img = $this->banner('chemistry', 'Chemistry Notes', null, false);

@@ -136,15 +136,19 @@ final class TemplateLibrary
             return ['science'];
         }
 
-        $found = [];
         $pool = Subjects::pool($label, $title);
+        if ($pool === ['kids'] && self::languageBook($label, $title)) {
+            return self::languages($label, $title);   // "English Grammar Book for 8+ Years' Old Kids" is still an English book
+        }
+        if ($pool === ['general'] && $title !== null && preg_match('/\bscience\b/iu', $title) && !preg_match('/\bsocial\b/iu', $title)) {
+            return ['science'];
+        }
+
+        $found = [];
         foreach ($pool as $group) {
             foreach ($group === 'languages' ? self::languages($label, $title) : (self::GROUP_TEMPLATES[$group] ?? [self::GENERAL]) as $template) {
                 $found[$template] = true;
             }
-        }
-        if ($pool === ['general'] && $title !== null && preg_match('/\bscience\b/iu', $title) && !preg_match('/\bsocial\b/iu', $title)) {
-            return ['science'];
         }
 
         return array_keys($found) ?: [self::GENERAL];
@@ -158,15 +162,41 @@ final class TemplateLibrary
         return $candidates[abs($seed) % count($candidates)];
     }
 
-    /** @return string[] */
+    /**
+     * A language book for children: the subject (or title) is a language and the title has no colouring / activity / rhymes /
+     * alphabet / nursery words, which really are children's-activity books whatever they are filed under.
+     */
+    private static function languageBook(string $label, ?string $title): bool
+    {
+        if ($title !== null && preg_match('/colou?ring|activity|rhymes?|alphabet|nursery|pre-?school|drawing|stories/iu', $title)) {
+            return false;
+        }
+
+        $groups = Subjects::groups($label);
+
+        // An unfiled book is recognised by its title, but only by the Indian languages: "English Medium" is in half the titles.
+        return in_array('languages', $groups, true)
+            || ($groups === ['general'] && $title !== null && preg_match('/\b(hindi|marathi|sanskrit)\b/iu', $title));
+    }
+
+    /**
+     * The language template: the subject label decides ("Sanskrit ... for Marathi Medium" is a Hindi-style Devanagari
+     * book, not a Marathi one); the title is only consulted when the label names no language.
+     *
+     * @return string[]
+     */
     private static function languages(string $label, ?string $title): array
     {
-        $text = mb_strtolower($label . ' ' . ($title ?? ''));
-        if (preg_match('/marathi|lokvani/u', $text)) {
-            return ['marathi'];
-        }
-        if (preg_match('/hindi|sanskrit/u', $text)) {
-            return ['hindi'];
+        foreach ([mb_strtolower($label), mb_strtolower((string) $title)] as $text) {
+            if (preg_match('/marathi|lokvani/u', $text)) {
+                return ['marathi'];
+            }
+            if (preg_match('/hindi|sanskrit/u', $text)) {
+                return ['hindi'];
+            }
+            if (preg_match('/english|grammar|vocabulary/u', $text)) {
+                return ['english'];
+            }
         }
 
         return ['english'];
