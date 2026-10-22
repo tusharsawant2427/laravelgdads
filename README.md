@@ -30,34 +30,45 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 - **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `paper` (light page), `mesh` (simple), `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
 
-## Subject templates (one artwork per subject)
+## Templates (subject, topic and colour artwork)
 
-Ten finished banners, one per subject, plus a generic one: `mathematics`, `science`, `english`, `hindi`, `marathi`,
-`social-science`, `physics`, `chemistry`, `biology`, `evs-gk` and `general`. Each is a separate file in
-`resources/templates/<name>.jpg` with its own subject background and props. The logo, benefit icons and the "Shop Now"
-button are part of the artwork; the headline and tagline placeholder and the book are removed, and the library draws
+Thirty finished banners, each its own file in `resources/templates/<name>.jpg`:
 
+- **Subjects:** `mathematics`, `science`, `english`, `hindi`, `marathi`, `social-science`, `physics`, `chemistry`, `biology`, `evs-gk`.
+- **Topics:** `entrance-exam`, `pre-primary`, `kids-activity`, `primary`, `foundation`, `multi-subject`, `early-learning`,
+  `kindergarten`, `handwriting`, `gk-kids`.
+- **Generic, in ten colours:** `general`, `general-orange`, `general-purple`, `general-green`, `general-navy`, `general-pink`,
+  `general-yellow`, `general-teal`, `general-cream`, `general-lavender`. Ask for `general` and the variant nearest the cover's
+  colour is used.
+
+The benefit icons and the "Shop Now" button are part of the artwork. The label, the logo, the headline and tagline
+placeholder and the book are removed, and the library draws
+
+- the logo, crisply, in its slot (the bundled Target Publications logo, white on dark artwork; `->logo($path)` replaces it),
 - the product cover, as a 3D book standing where the template's book was (it covers the placeholder completely),
-- the product title (headline) in the template's headline colour, auto-sized to fit, up to 3 lines,
+- the product title (headline) in the template's headline colour, auto-sized to fit, up to 3 lines (characters the font has no
+  glyph for are left out instead of printing boxes),
 - an optional tagline (`subheadline`) under it.
+
+The artwork's background colour follows the cover: it is moved to the cover's main colour (the generic template picks the nearest of its
+ten colours instead). `->matchCoverColour(false)` keeps the colours as designed; white, grey and black covers always do.
 
 ```php
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 
-TemplateLibrary::names();                       // mathematics, science, english, hindi, marathi, social-science, physics, ...
 [$w, $h] = TemplateLibrary::dimensions('physics', 1200);   // the templates differ in proportions: 1200x524 here
 
 Laragdads::ad()->size($w, $h)->images($cover)->template('physics')
     ->headline('Std. XII Physics Part 1')->subheadline('Chapter-wise notes and numericals')
     ->save('ads/physics.png');
 
-// or let the subject choose (the title refines the choice; $variant rotates through related subjects):
+// or let the subject and the title choose:
 $template = TemplateLibrary::pickFor($subjectName, $product->id, $product->title);
 Laragdads::ad()->subject($subjectName, $product->id, $product->title)->size(...TemplateLibrary::dimensions($template))
 ```
 
 Rendering at a size whose proportions differ from the template's by more than 20% throws and names the right size.
-CTA, badge, features and logo of the builder are not used with templates: they are part of the artwork.
+CTA, badge and features of the builder are not used with templates: they are part of the artwork.
 
 ### Which template for which subject
 
@@ -72,9 +83,14 @@ Subject labels are normalised first (case, spacing, typos such as `Alegbra`, sho
 | Hindi, Sanskrit | `hindi` |
 | Marathi, Lokvani | `marathi` |
 | History, Geography, Civics, Political Science, Social Science | `social-science` |
-| EVS, General Knowledge, Reasoning, children's / colouring / activity books | `evs-gk` |
+| EVS, Water Security, Reasoning | `evs-gk` |
+| General Knowledge (label or title) | `gk-kids` |
 | PCM, PCB, PCMB | rotates through the matching subject templates (by `$variant`) |
-| Commerce, computer, psychology, art, mixed lists, anything unknown | `general` |
+| Title says handwriting / LKG-UKG-KG / nursery-rhymes-alphabet / colouring-drawing-craft (Std 5 and below) | `handwriting` / `kindergarten` / `pre-primary` / `kids-activity` |
+| CUET or "entrance exam" in the title (NEET, JEE, CET for books without a subject template) | `entrance-exam` |
+| "All subjects", "combo", "all-in-one", or a label that lists several unrelated subjects | `multi-subject` |
+| No subject template and "foundation", Std 1-5 or "primary" in the title | `foundation` / `primary` |
+| Commerce, computer, psychology, art, anything else unknown | `general` (in the cover's colour) |
 
 ```php
 TemplateLibrary::forSubject('PCM');     // ['physics', 'chemistry', 'mathematics']
@@ -84,8 +100,8 @@ Subjects::unknown('Some new subject');  // names the catalogue does not know yet
 
 ### Adding or replacing a template
 
-`tools/prepare_templates.py` builds `resources/templates/` (cleaned plates + `manifest.php`) from the designers' artwork: it
-removes the label and the headline / tagline placeholders and records where the copy zone and the book are. Supplying
+`tools/prepare_templates.py SUBJECTS TOPICS VARIANTS` builds `resources/templates/` (cleaned plates + `manifest.php`) from the three
+design sheets: it removes the label, the logo and the headline / tagline placeholders and records where the copy zone, the logo and the book are. Supplying
 higher-resolution originals gives sharper banners: adjust the boxes at the top of the script and run it again.
 `php examples/templates.php` writes one banner per template.
 

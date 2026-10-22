@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.0
+
+### Added
+- 20 more templates: ten topic templates (`entrance-exam`, `pre-primary`, `kids-activity`, `primary`, `foundation`,
+  `multi-subject`, `early-learning`, `kindergarten`, `handwriting`, `gk-kids`) and the generic one in ten colours (`general`,
+  `general-orange` ... `general-lavender`; the one nearest the cover's colour is drawn). `pickFor()` chooses topic templates from words in the
+  title; `TemplateLibrary::resolve()`, `variants()` and `isGeneral()`.
+- The logo is drawn crisply on top of the artwork instead of being baked into it (`->logo($path)` to replace the bundled
+  Target Publications logo, which is turned white on dark artwork).
+
+### Changed
+- "General Knowledge" books use `gk-kids`; `evs-gk` stays for EVS, water security and reasoning. Children's books by their title:
+  colouring, drawing and craft give `kids-activity`.
+
 ## 2.1.0
 
 ### Added

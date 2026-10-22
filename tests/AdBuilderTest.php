@@ -597,10 +597,16 @@ final class AdBuilderTest extends TestCase
         return $this->decode($ad->toPng());
     }
 
-    public function test_there_is_one_template_per_subject_plus_a_generic_one_and_each_has_its_artwork(): void
+    public function test_there_is_one_template_per_subject_and_topic_and_ten_colours_of_the_generic_one(): void
     {
         $this->assertSame(
-            ['mathematics', 'science', 'english', 'hindi', 'marathi', 'social-science', 'physics', 'chemistry', 'biology', 'evs-gk', 'general'],
+            [
+                'mathematics', 'science', 'english', 'hindi', 'marathi', 'social-science', 'physics', 'chemistry', 'biology', 'evs-gk',
+                'entrance-exam', 'pre-primary', 'kids-activity', 'primary', 'foundation', 'multi-subject', 'early-learning', 'kindergarten',
+                'handwriting', 'gk-kids',
+                'general', 'general-orange', 'general-purple', 'general-green', 'general-navy', 'general-pink', 'general-yellow',
+                'general-teal', 'general-cream', 'general-lavender',
+            ],
             TemplateLibrary::names()
         );
         foreach (TemplateLibrary::names() as $name) {
@@ -652,7 +658,7 @@ final class AdBuilderTest extends TestCase
             $titled = $this->banner($name, 'Std. X Mathematics Part 1');
             $plain = $this->banner($name, null);
             [$zx, $zy, $zw, $zh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['zone'], ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h]);
-            $ink = TemplateLibrary::palette($name)['ink'];
+            $inks = TemplateLibrary::isGeneral($name) ? array_map(fn ($v) => TemplateLibrary::palette($v)['ink'], TemplateLibrary::variants()) : [TemplateLibrary::palette($name)['ink']];
 
             $changed = 0;
             $inInk = 0;
@@ -664,8 +670,11 @@ final class AdBuilderTest extends TestCase
                     }
                     $changed++;
                     $this->assertTrue($px >= $zx - 2 && $px <= $zx + $zw + 2 && $py >= $zy - 2 && $py <= $zy + $zh + 2, "{$name}: text at {$px},{$py} is outside the zone");
-                    if (array_sum(array_map('abs', array_map(fn ($u, $v) => $u - $v, $a, $ink))) < 24) {
-                        $inInk++;
+                    foreach ($inks as $ink) {
+                        if (array_sum(array_map('abs', array_map(fn ($u, $v) => $u - $v, $a, $ink))) < 24) {
+                            $inInk++;
+                            break;
+                        }
                     }
                 }
             }
@@ -726,8 +735,8 @@ final class AdBuilderTest extends TestCase
         $this->assertSame('english', TemplateLibrary::pickFor('Grammar', 0, 'English Grammar Book C for 8+ Years\' Old Kids'));
         $this->assertSame('english', TemplateLibrary::pickFor('Vocabulary', 0, 'Blossom English Vocabulary Book for 5 to 7 Year Old Kids'));
         $this->assertSame('hindi', TemplateLibrary::pickFor('Some new subject', 0, 'Hindi Sulekh 3 Book for Kids'));
-        $this->assertSame('evs-gk', TemplateLibrary::pickFor('English', 0, 'Alphabet Activity Book for Kids'));
-        $this->assertSame('evs-gk', TemplateLibrary::pickFor('Art and Craft', 0, 'Crafty Minds Art and Craft Book Kits for Senior KG kids'));
+        $this->assertSame('pre-primary', TemplateLibrary::pickFor('English', 0, 'Alphabet Activity Book for Kids'));
+        $this->assertSame('kindergarten', TemplateLibrary::pickFor('Art and Craft', 0, 'Crafty Minds Art and Craft Book Kits for Senior KG kids'));
         $this->assertSame('hindi', TemplateLibrary::pickFor('Sanskrit', 0, 'Sanskrit Aamod Notes for English, Semi-English & Marathi Medium'), 'the subject, not the medium, decides');
     }
 
@@ -756,6 +765,42 @@ final class AdBuilderTest extends TestCase
         // The red Shop Now button keeps its colour whatever the cover.
         [$r, $g, $b] = $this->rgb($make($blue, true), (int) ($w * 0.10), (int) ($h * 0.88));
         $this->assertTrue($r > 180 && $g < 60 && $b < 70, "button stays red ({$r},{$g},{$b})");
+    }
+
+    public function test_the_logo_is_drawn_in_its_slot_white_on_dark_artwork_and_can_be_replaced(): void
+    {
+        $logoPath = $this->dir . '/logo.png';
+        imagepng(Canvas::create(60, 20, [200, 0, 0])->image(), $logoPath);
+
+        foreach (['mathematics', 'physics', 'entrance-exam', 'general', 'general-navy'] as $name) {
+            [$w, $h] = TemplateLibrary::dimensions($name, 800);
+            $map = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
+            $spec = TemplateLibrary::spec($name);
+            [$x, $y, $lw, $lh] = TemplateLibrary::rect($spec['logo'], $map);
+            $render = function (?string $logo) use ($w, $h, $name) {
+                $ad = AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->font($this->font)->matchCoverColour(false);
+                if ($logo !== null) {
+                    $ad->logo($logo);
+                }
+
+                return $this->decode($ad->toPng());
+            };
+
+            [$r, $g, $b] = $this->rgb($render($logoPath), $x + intdiv($lw, 2), $y + intdiv($lh, 2));
+            $this->assertTrue($r > 150 && $g < 60 && $b < 60, "{$name}: a supplied logo fills the slot ({$r},{$g},{$b})");
+
+            $default = $render(null);
+            $brand = 0;
+            for ($py = $y; $py < $y + $lh; $py++) {
+                for ($px = $x; $px < $x + $lw; $px++) {
+                    [$r, $g, $b] = $this->rgb($default, $px, $py);
+                    $brand += ($spec['logoLight'] ? ($r > 235 && $g > 235 && $b > 235) : ($r > 180 && $g < 70 && $b < 70)) ? 1 : 0;
+                }
+            }
+            $this->assertGreaterThan(40, $brand, "{$name}: the bundled logo is drawn " . ($spec['logoLight'] ? 'in white' : 'in colour'));
+        }
+        $this->assertTrue(TemplateLibrary::spec('physics')['logoLight'] && TemplateLibrary::spec('general-navy')['logoLight']);
+        $this->assertFalse(TemplateLibrary::spec('mathematics')['logoLight']);
     }
 
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
@@ -791,9 +836,12 @@ final class AdBuilderTest extends TestCase
             'Marathi' => 'marathi', 'Lokvani' => 'marathi',
             'Social Science' => 'social-science', 'History' => 'social-science', 'Geography' => 'social-science',
             'Political Science' => 'social-science', 'History + Geography' => 'social-science',
-            'EVS' => 'evs-gk', 'General Knowlegde' => 'evs-gk', 'Reasoning' => 'evs-gk', 'Coloring Book' => 'evs-gk',
+            'EVS' => 'evs-gk', 'Reasoning' => 'evs-gk', 'Water Security' => 'evs-gk',
+            'General Knowlegde' => 'gk-kids', 'General Knowledge' => 'gk-kids',
+            'Coloring Book' => 'kids-activity', 'Drawing and Colouring' => 'kids-activity',
             'Accounts' => 'general', 'Computer Science - I' => 'general', 'Psychology' => 'general', 'Something nobody listed' => 'general',
-            'Eng/Mar/His' => 'general', 'English + Hindi + Marathi + History + Geography + Maths + Science' => 'general',
+            'Eng/Mar/His' => 'multi-subject', 'English + Maths + Science' => 'multi-subject',
+            'English + Hindi + Marathi + History + Geography + Maths + Science' => 'multi-subject',
         ];
         foreach ($expected as $label => $template) {
             $this->assertSame($template, TemplateLibrary::pickFor($label), $label);
@@ -801,9 +849,57 @@ final class AdBuilderTest extends TestCase
         }
     }
 
+    public function test_the_title_picks_the_topic_template(): void
+    {
+        $expected = [
+            [['Accounts', 'CUET-UG Book Keeping & Accountancy 10 Practice Papers'], 'entrance-exam'],
+            [['English', 'CUET-UG English Book for 2024-2025 Entrance Exam'], 'entrance-exam'],
+            [['Some new subject', 'NEET-UG Foundation Notes'], 'entrance-exam'],
+            [['Physics', 'MHT-CET Competition Edge Physics Notes'], 'physics'],
+            [['English', 'Std 3 English Handwriting Book'], 'handwriting'],
+            [['Some new subject', 'Neat Writing Practice Book'], 'handwriting'],
+            [['Some new subject', 'Blossom LKG Fun Book'], 'kindergarten'],
+            [['Art and Craft', 'Crafty Minds Art and Craft Book Kits for Senior KG kids'], 'kindergarten'],
+            [['English', 'Alphabet Activity Book for Kids'], 'pre-primary'],
+            [['Some new subject', 'Nursery Rhymes Book'], 'pre-primary'],
+            [['English', 'Blossom Colouring Book for 5+ Year Old Kids'], 'kids-activity'],
+            [['Drawing and Colouring', 'Drawing and Colouring Books for Kids | Level 5'], 'kids-activity'],
+            [['Physical Education', 'Std 1 Physical Education Book'], 'primary'],
+            [['Computer', 'Computers Class 3 Workbook'], 'primary'],
+            [['Defence Studies', 'Std 9 English Medium Defence Studies Handbook'], 'general'],
+            [['Some new subject', 'Foundation Series Book'], 'foundation'],
+            [['Value Education', 'Life Skills and Logical Thinking Book'], 'early-learning'],
+            [['Maths', 'Std 6 English Medium All Subjects\' (English, Hindi, Marathi) Perfect Notes'], 'multi-subject'],
+            [['Science', 'Std 8 Science Activity Book'], 'science'],
+            [['General Test', 'General Knowledge Book 5'], 'gk-kids'],
+        ];
+        foreach ($expected as [$key, $template]) {
+            $this->assertSame($template, TemplateLibrary::pickFor($key[0], 0, $key[1]), $key[1]);
+        }
+    }
+
+    public function test_the_generic_template_takes_the_colour_variant_nearest_the_cover(): void
+    {
+        $this->assertCount(10, TemplateLibrary::variants());
+        $expected = [
+            [[30, 80, 200], 'general'], [[230, 120, 30], 'general-orange'], [[40, 160, 70], 'general-green'],
+            [[230, 60, 130], 'general-pink'], [[15, 25, 80], 'general-navy'], [[120, 70, 200], 'general-purple'],
+        ];
+        foreach ($expected as [$rgb, $variant]) {
+            $this->assertSame($variant, TemplateLibrary::resolve('general', $rgb), json_encode($rgb));
+        }
+        $this->assertSame('general', TemplateLibrary::resolve('general', [120, 120, 120]), 'a grey cover keeps the default');
+        $this->assertSame('general', TemplateLibrary::resolve('general', null));
+        $this->assertSame('physics', TemplateLibrary::resolve('physics', [230, 120, 30]), 'only the generic template has colour variants');
+
+        // All variants share one size, so the generic template renders at one proportion.
+        $sizes = array_unique(array_map(fn ($v) => TemplateLibrary::spec($v)['width'] . 'x' . TemplateLibrary::spec($v)['height'], TemplateLibrary::variants()));
+        $this->assertCount(1, $sizes);
+    }
+
     public function test_the_title_refines_the_choice_and_related_sciences_rotate(): void
     {
-        $this->assertSame('evs-gk', TemplateLibrary::pickFor('English', 0, 'Blossom Colouring Book for 5+ Year Old Kids'));
+        $this->assertSame('kids-activity', TemplateLibrary::pickFor('English', 0, 'Blossom Colouring Book for 5+ Year Old Kids'));
         $this->assertSame('physics', TemplateLibrary::pickFor('Some new subject', 0, 'MHT-CET Physics Notes'));
         $this->assertSame('science', TemplateLibrary::pickFor('Some new subject', 0, 'Std. X Science and Technology'));
         $this->assertSame('hindi', TemplateLibrary::pickFor('Hindi', 0, 'Std. 8 Hindi Sulabhbharati'));
@@ -821,7 +917,7 @@ final class AdBuilderTest extends TestCase
         $this->assertNull(AdBuilder::make()->templateName());
         $this->assertSame('physics', AdBuilder::make()->subject('Physics')->templateName());
         $this->assertSame('chemistry', AdBuilder::make()->subject('PCM', 1)->templateName());
-        $this->assertSame('evs-gk', AdBuilder::make()->subject('English', 0, 'Alphabet Activity Book for Kids')->templateName());
+        $this->assertSame('pre-primary', AdBuilder::make()->subject('English', 0, 'Alphabet Activity Book for Kids')->templateName());
 
         [$w, $h] = TemplateLibrary::dimensions('physics', 600);
         $make = fn () => AdBuilder::make()->size($w, $h)->images($this->packshot())->headline('Notes')->font($this->font);

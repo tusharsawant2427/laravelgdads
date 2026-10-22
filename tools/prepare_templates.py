@@ -2,12 +2,15 @@
 """
 Build the banner template plates in resources/templates/ from the designers' artwork.
 
-    python3 tools/prepare_templates.py SHEET.webp MASTER.webp
+    python3 tools/prepare_templates.py SUBJECTS.webp TOPICS.webp VARIANTS.webp
 
-SHEET is the 10-up contact sheet (Mathematics ... EVS / GK), MASTER the single generic template. For every template this
+SUBJECTS is the 10-up contact sheet of subject templates (Mathematics ... EVS / GK), TOPICS the 10-up sheet of topic templates
+(entrance exam, pre-primary, kids activity ...) and VARIANTS the 10 colour variants of the generic layout (the "general" family).
+For every template this
 
   * cuts it out of the sheet and trims the white gutter,
   * removes the "N. SUBJECT TEMPLATE" label,
+  * removes the baked-in logo (the layout draws a crisp one at the recorded position: it was small, blurry and cut by the artwork),
   * wipes the headline + tagline placeholder (the "copy zone") and fills it from the surrounding background,
   * samples the headline and tagline ink colours,
   * upscales the plate and saves it as a JPEG,
@@ -32,6 +35,7 @@ HALO = (5, 8, 2)       # how far the patch grows left/right/top, and where its s
 # would leave part of it showing, so it is wiped from the plate: (left, right, top offset, bottom offset) inside the book.
 LABEL = (10, 6, 24, 60)
 LABEL_TALL = {'social-science': 74}   # its label runs to two lines
+LOGO_ASPECT = 378 / 81          # resources/logo/target-publications.png
 BOOK_PAD = (2, 1)      # grow the book rectangle by this much (x, y) so no placeholder edge peeks out
 
 # key: cell in the sheet, label tab, copy zone, placeholder book
@@ -47,11 +51,52 @@ CELLS = {
     'biology':        dict(cell=(383, 450, 996, 667), tab=(0, 0, 216, 32),   zone=(48, 72, 300, 127),  book=(400, 30, 523, 210)),
     'evs-gk':         dict(cell=(1004, 450, 1617, 667), tab=(0, 0, 298, 32), zone=(46, 72, 358, 127),  book=(410, 28, 531, 210)),
 }
-# The single generic template (no label to remove); here the zone also covers the class/board pill and the tagline underline.
-MASTER = dict(key='general', zone=(180, 138, 935, 352), book=(1179, 52, 1634, 603), width=1400,
-              # its book cover is full of placeholders (board logo, edition, [SUBJECT NAME], [PART]): turn the face into a plain page
-              face=(1200, 56, 1630, 586))
 
+# Topic templates (second sheet, cells about 1000x262): label tab, copy zone and placeholder book.
+TOPICS = {
+    'entrance-exam':  dict(tab=(0, 0, 282), zone=(60, 77, 520, 151), book=(722, 30, 900, 250)),
+    'pre-primary':    dict(tab=(0, 0, 288), zone=(60, 77, 520, 151), book=(672, 28, 872, 250)),
+    'kids-activity':  dict(tab=(0, 0, 300), zone=(60, 77, 520, 151), book=(700, 25, 890, 250)),
+    'primary':        dict(tab=(0, 0, 322), zone=(68, 77, 520, 151), book=(715, 20, 900, 250)),
+    'foundation':     dict(tab=(0, 0, 390), zone=(60, 77, 505, 151), book=(705, 25, 895, 250)),
+    # no single book here: a shelf of four. The cover stands in front of the middle two.
+    'multi-subject':  dict(tab=(0, 0, 402), zone=(68, 77, 520, 151), book=(690, 40, 830, 250), label=False),
+    'early-learning': dict(tab=(0, 0, 372), zone=(64, 77, 520, 151), book=(733, 22, 905, 250)),
+    'kindergarten':   dict(tab=(0, 0, 398), zone=(72, 77, 520, 151), book=(700, 28, 880, 250)),
+    'handwriting':    dict(tab=(0, 0, 430), zone=(68, 77, 520, 151), book=(690, 25, 880, 250)),
+    'gk-kids':        dict(tab=(0, 0, 442), zone=(72, 77, 540, 151), book=(705, 18, 895, 250)),
+}
+TOPIC_LABEL = (16, 12, 40, 108)
+
+def _grid(rows, cols, keys):
+    return {keys[i]: (c[0], r[0], c[1], r[1]) for i, (r, c) in enumerate((r, c) for r in rows for c in cols)}
+
+
+TOPIC_CELLS = _grid([(0, 265), (270, 529), (535, 799), (805, 1065), (1070, 1336)], [(0, 1000), (1001, 2000)],
+                    ['entrance-exam', 'pre-primary', 'kids-activity', 'primary', 'foundation', 'multi-subject',
+                     'early-learning', 'kindergarten', 'handwriting', 'gk-kids'])
+VARIANT_CELLS = _grid([(0, 262), (268, 527), (533, 797), (802, 1064), (1069, 1337)], [(0, 995), (999, 2000)],
+                      ['general', 'general-orange', 'general-purple', 'general-green', 'general-navy', 'general-pink',
+                       'general-yellow', 'general-teal', 'general-cream', 'general-lavender'])
+
+# Colour variants of the generic layout (third sheet): a numbered circle instead of a tab, title + class pill + tagline zone.
+VARIANT_ZONE = (118, 52, 452, 157)
+VARIANT_CIRCLE = (4, 4, 62, 60)
+VARIANT_LABEL = (16, 12, 50, 122)
+VARIANTS = {
+    'general':          (667, 5, 843, 252),
+    'general-orange':   (669, 14, 840, 249),
+    'general-purple':   (671, 20, 837, 241),
+    'general-green':    (660, 21, 832, 248),
+    'general-navy':     (674, 21, 846, 253),
+    'general-pink':     (712, 26, 887, 243),
+    'general-yellow':   (671, 22, 839, 249),
+    'general-teal':     (705, 24, 882, 257),
+    'general-cream':    (682, 25, 856, 227),
+    'general-lavender': (706, 30, 882, 252),
+}
+VARIANT_SIZE = (990, 260)   # every variant is stored at the same size, so the whole family renders at one proportion
+TOPIC_SCALE = 1.0
 
 def near_white(p):
     return p[0] >= 246 and p[1] >= 246 and p[2] >= 246
@@ -83,7 +128,7 @@ def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def fill_patch(im, x0, y0, x1, y1, halo=None):
+def fill_patch(im, x0, y0, x1, y1, halo=None, smooth_top=False, smooth_bottom=False):
     """Replace a rectangle by a Coons patch of its four surrounding edges (smooth gradient, no text).
 
     The lettering sits in a soft halo, so the left, right and top edges are sampled a few pixels outside it; the bottom
@@ -100,6 +145,11 @@ def fill_patch(im, x0, y0, x1, y1, halo=None):
     bot = {x: avg([px[x, y1 + 1], px[x, y1 + 2]]) for x in range(x0, x1 + 1)}
     lef = {y: avg([px[x0 - HALO_[1], y], px[x0 - HALO_[1] + 1, y]]) for y in range(y0, y1 + 1)}
     rig = {y: avg([px[x1 + HALO_[1], y], px[x1 + HALO_[1] - 1, y]]) for y in range(y0, y1 + 1)}
+    if smooth_top:
+        # The title's brackets and the logo's small print reach the top edge: take it from the sides, not from the row above.
+        top = {x: lerp(lef[y0], rig[y0], (x - x0) / max(1, x1 - x0)) for x in range(x0, x1 + 1)}
+    if smooth_bottom:
+        bot = {x: lerp(lef[y1], rig[y1], (x - x0) / max(1, x1 - x0)) for x in range(x0, x1 + 1)}
     tl, tr, bl, br = lef[y0], rig[y0], lef[y1], rig[y1]
     out = {}
     for y in range(y0, y1 + 1):
@@ -189,43 +239,78 @@ def blank_face(im, rect):
         draw.line([(x0, y), (x1, y)], fill=v)
 
 
-def finish(im, key, zone, book, tab, width=None, label_bottom=LABEL[3], face=None):
-    """im is at source resolution; rectangles are in its pixels. Returns the manifest entry."""
+def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_top=False, smooth_bottom=False, logo=None):
+    """im is at source resolution; rectangles are in its pixels. Returns the manifest entry.
+
+    label: (left, right, top, bottom) inside the book to wipe, or None. size: store the plate at exactly this size.
+    """
     w, h = im.size
     title_ink = ink(im, (zone[0], zone[1], zone[2] - 40, zone[1] + (zone[3] - zone[1]) * 5 // 9), zone)
     tag_ink = ink(im, (zone[0], zone[1] + (zone[3] - zone[1]) * 6 // 9, zone[2] - 40, zone[3]), zone)
     if tab:
         clear_tab(im, *tab)
-    fill_patch(im, *zone)
-    if face:
-        blank_face(im, face)
-    if label_bottom:
-        fill_patch(im, book[0] + LABEL[0], book[1] + LABEL[2], book[2] - LABEL[1], book[1] + label_bottom, halo=(3, 3, 3))
+    logo_entry = {}
+    if logo:
+        erase, (lx, ly, lw) = logo
+        dark = sum(sum(p) for p in im.crop((erase[0] - 6, erase[1] + 2, erase[0], erase[3])).getdata()) / (3 * max(1, 6 * (erase[3] - erase[1] - 2))) < 110
+        fill_patch(im, *erase, halo=(3, 5, 2), smooth_top=True, smooth_bottom=True)
+        logo_entry = {'logo': frac((lx, ly, lx + lw, ly + lw / LOGO_ASPECT), w, h), 'logoLight': dark}
+    fill_patch(im, *zone, smooth_top=smooth_top, smooth_bottom=smooth_bottom)
+    if label:
+        fill_patch(im, book[0] + label[0], book[1] + label[2], book[2] - label[1], book[1] + label[3], halo=(3, 3, 3))
     bx = (book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1])
     hue, sat = background_colour(im)
-    target = (int(width), round(width * h / w)) if width else (round(w * SCALE), round(h * SCALE))
+    target = size or (round(w * scale), round(h * scale))
     im = im.resize(target, Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=2))
+    lightness = round(sum(im.convert('L').resize((64, 32)).getdata()) / (64 * 32 * 255), 3)
     os.makedirs(OUT, exist_ok=True)
     im.save(os.path.join(OUT, key + '.jpg'), quality=90, optimize=True, subsampling=0)
     return {
         'file': key + '.jpg', 'width': target[0], 'height': target[1],
         'zone': frac(zone, w, h), 'book': frac(bx, w, h),
-        'ink': list(title_ink), 'tagline': list(tag_ink), 'hue': hue, 'saturation': sat,
+        'ink': list(title_ink), 'tagline': list(tag_ink), 'hue': hue, 'saturation': sat, 'lightness': lightness,
+        **logo_entry,
     }
 
 
-def main(sheet_path, master_path):
-    sheet = Image.open(sheet_path).convert('RGB')
-    manifest = {}
-    for key, c in CELLS.items():
-        cell = sheet.crop(c['cell'])
-        im, dx, dy = trim_gutter(cell)
-        sh = lambda r: (r[0] - dx, r[1] - dy, r[2] - dx, r[3] - dy)
-        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']), label_bottom=LABEL_TALL.get(key, LABEL[3]))
-    master = Image.open(master_path).convert('RGB')
-    manifest[MASTER['key']] = finish(master, MASTER['key'], MASTER['zone'], MASTER['book'], None, MASTER['width'], label_bottom=0, face=MASTER['face'])
+def cut(sheet, box):
+    """Cut a cell out of a sheet and trim its white gutter; returns (image, rect shifter)."""
+    im, dx, dy = trim_gutter(sheet.crop(box))
+    return im, (lambda r: (r[0] - dx, r[1] - dy, r[2] - dx, r[3] - dy))
 
-    lines = ["<?php", "", "// Generated by tools/prepare_templates.py: do not edit by hand.", "// zone: headline + tagline area, book: where the product cover goes; both as fractions of the plate.", "", "return ["]
+
+def main(subjects_path, topics_path, variants_path):
+    manifest = {}
+
+    sheet = Image.open(subjects_path).convert('RGB')
+    for key, c in CELLS.items():
+        im, sh = cut(sheet, c['cell'])
+        label = (LABEL[0], LABEL[1], LABEL[2], LABEL_TALL.get(key, LABEL[3]))
+        zx = c['zone'][0]
+        wide = c['cell'][2] - c['cell'][0] > 550   # biology and EVS cells are wider and their logo a little smaller
+        lw = 110 if wide else 114
+        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']), label=label,
+                               logo=(sh((zx - 6, 36, zx + 124, c['zone'][1] - 5)), sh((zx, 42, 0, 0))[:2] + (lw,)))
+
+    sheet = Image.open(topics_path).convert('RGB')
+    for key, box in TOPIC_CELLS.items():
+        c = TOPICS[key]
+        im, sh = cut(sheet, box)
+        tab = sh((c['tab'][0], 0, c['tab'][2] + 14, 33))   # the label's shadow runs past the measured edge
+        zx = c['zone'][0]
+        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), tab,
+                               label=None if c.get('label') is False else TOPIC_LABEL, scale=TOPIC_SCALE, smooth_top=True,
+                               logo=(sh((zx - 10, 38, zx + 200, 76)), sh((zx, 42, 0, 0))[:2] + (160,)))
+
+    sheet = Image.open(variants_path).convert('RGB')
+    for key, box in VARIANT_CELLS.items():
+        im, sh = cut(sheet, box)
+        manifest[key] = finish(im, key, sh(VARIANT_ZONE), sh(VARIANTS[key]), sh((0, 0, VARIANT_CIRCLE[2], VARIANT_CIRCLE[3] + 2)),
+                               label=VARIANT_LABEL, size=VARIANT_SIZE, smooth_top=True, smooth_bottom=True,
+                               logo=(sh((108, 2, 330, 51)), sh((118, 8, 0, 0))[:2] + (175,)))
+
+    lines = ["<?php", "", "// Generated by tools/prepare_templates.py: do not edit by hand.", "// zone: headline + tagline area, book: where the product cover goes; both as fractions of the plate.",
+             "// hue, saturation, lightness: the background colour family of the artwork (what is recoloured to match a cover, or picks a colour variant).", "", "return ["]
     for key, m in manifest.items():
         lines.append("    '%s' => %s," % (key, json.dumps(m).replace('{', '[').replace('}', ']').replace('": ', '" => ').replace('"', "'")))
     lines += ["];", ""]
@@ -235,6 +320,6 @@ def main(sheet_path, master_path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])

@@ -26,10 +26,23 @@ $titles = [
     'chemistry' => ['MHT-CET Triumph Chemistry: Chapter-wise Notes and 6400+ MCQs', null],
     'biology' => ['Std. XII Biology Part 1', null],
     'evs-gk' => ['EVS and General Knowledge Activity Book for Kids', null],
+    'entrance-exam' => ['CUET-UG English Book for 2025-2026 Entrance Exam', 'Chapter-wise practice papers'],
+    'pre-primary' => ['Blossom Nursery Rhymes and Alphabet Book', null],
+    'kids-activity' => ['Drawing and Colouring Books for Kids | Level 5', null],
+    'primary' => ['Std. 3 Computers Workbook', null],
+    'foundation' => ['Maths Foundation Series Book 2', null],
+    'multi-subject' => ['Std. 6 All Subjects Perfect Notes', 'Maharashtra Board 2026-2027'],
+    'early-learning' => ['Logical Thinking and Life Skills Book', null],
+    'kindergarten' => ['Senior KG Fun Book', null],
+    'handwriting' => ['Std. 2 English Handwriting Book', null],
+    'gk-kids' => ['General Knowledge Book 5', null],
     'general' => ['Std. XI Computer Science', 'As per the latest syllabus'],
 ];
 
 foreach (TemplateLibrary::names() as $i => $name) {
+    if ($name !== 'general' && TemplateLibrary::isGeneral($name)) {
+        continue;   // the colour variants are chosen by the cover's colour; 'general' stands for all ten
+    }
     [$w, $h] = TemplateLibrary::dimensions($name, 1200);
     [$title, $tagline] = $titles[$name];
     AdBuilder::make()->size($w, $h)->images($covers[$i % count($covers)])->template($name)
