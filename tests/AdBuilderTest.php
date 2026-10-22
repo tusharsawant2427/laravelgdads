@@ -767,7 +767,7 @@ final class AdBuilderTest extends TestCase
         $this->assertTrue($r > 180 && $g < 60 && $b < 70, "button stays red ({$r},{$g},{$b})");
     }
 
-    public function test_the_logo_is_drawn_in_its_slot_white_on_dark_artwork_and_can_be_replaced(): void
+    public function test_the_logo_is_drawn_in_its_slot_on_a_pill_over_dark_artwork_and_can_be_replaced(): void
     {
         $logoPath = $this->dir . '/logo.png';
         imagepng(Canvas::create(60, 20, [200, 0, 0])->image(), $logoPath);
@@ -786,7 +786,7 @@ final class AdBuilderTest extends TestCase
                 return $this->decode($ad->toPng());
             };
 
-            [$r, $g, $b] = $this->rgb($render($logoPath), $x + intdiv($lw, 2), $y + intdiv($lh, 2));
+            [$r, $g, $b] = $this->rgb($render($logoPath), $x + (int) ($lh * 1.5), $y + intdiv($lh, 2));   // the 60x20 test logo is 3:1, drawn at the slot's left
             $this->assertTrue($r > 150 && $g < 60 && $b < 60, "{$name}: a supplied logo fills the slot ({$r},{$g},{$b})");
 
             $default = $render(null);
@@ -794,13 +794,13 @@ final class AdBuilderTest extends TestCase
             for ($py = $y; $py < $y + $lh; $py++) {
                 for ($px = $x; $px < $x + $lw; $px++) {
                     [$r, $g, $b] = $this->rgb($default, $px, $py);
-                    $brand += ($spec['logoLight'] ? ($r > 235 && $g > 235 && $b > 235) : ($r > 180 && $g < 70 && $b < 70)) ? 1 : 0;
+                    $brand += ($r > 180 && $g < 70 && $b < 70) ? 1 : 0;   // the red of "Target"
                 }
             }
-            $this->assertGreaterThan(40, $brand, "{$name}: the bundled logo is drawn " . ($spec['logoLight'] ? 'in white' : 'in colour'));
+            $this->assertGreaterThan(40, $brand, "{$name}: the bundled logo is drawn" . ($spec['logoDark'] ? ' on a white pill' : ''));
         }
-        $this->assertTrue(TemplateLibrary::spec('physics')['logoLight'] && TemplateLibrary::spec('general-navy')['logoLight']);
-        $this->assertFalse(TemplateLibrary::spec('mathematics')['logoLight']);
+        $this->assertTrue(TemplateLibrary::spec('physics')['logoDark'] && TemplateLibrary::spec('general-navy')['logoDark']);
+        $this->assertFalse(TemplateLibrary::spec('mathematics')['logoDark']);
     }
 
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void

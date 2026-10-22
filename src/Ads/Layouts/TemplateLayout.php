@@ -36,40 +36,25 @@ final class TemplateLayout extends AbstractLayout
         $template = TemplateLibrary::spec($name);
         $map = TemplateLibrary::paint($name, $canvas, $match);
 
-        $this->brand($canvas, $spec, TemplateLibrary::rect($template['logo'], $map), $template['logoLight']);
+        $this->brand($canvas, $spec, TemplateLibrary::rect($template['logo'], $map), $template['logoDark']);
         $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
         $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);
     }
 
-    /** The logo, fitted into its slot and anchored to its left edge (so it lines up with the headline); white on a dark template. */
-    private function brand(Canvas $canvas, AdSpec $spec, array $rect, bool $light): void
+    /** The logo, fitted into its slot and anchored to its left edge (so it lines up with the headline); on a white pill over dark artwork. */
+    private function brand(Canvas $canvas, AdSpec $spec, array $rect, bool $onDark): void
     {
         [$x, $y, $w, $h] = $rect;
-        $logo = ImageLoader::load($spec->logo ?? dirname(__DIR__, 3) . '/resources/logo/target-publications.png');
+        $logo = ImageLoader::load($spec->logo ?? dirname(__DIR__, 3) . '/resources/logo/target-logo.png');
         $scale = min($w / imagesx($logo), $h / imagesy($logo));
         $lw = max(1, (int) round(imagesx($logo) * $scale));
         $lh = max(1, (int) round(imagesy($logo) * $scale));
-        if ($light && $spec->logo === null) {   // only the bundled logo is whitened: a supplied one is drawn as it is
-            $logo = $this->whiten($logo);
+        $ly = $y + intdiv($h - $lh, 2);
+        if ($onDark) {
+            $pad = (int) round($lh * 0.3);
+            $canvas->rect($x - $pad, $ly - $pad, $lw + 2 * $pad, $lh + 2 * $pad, [255, 255, 255], 0.96, intdiv($lh + 2 * $pad, 2));
         }
-        $canvas->picture($logo, $x, $y + intdiv($h - $lh, 2), $lw, $lh, 'contain');
-    }
-
-    /** The same picture in solid white, keeping its transparency. */
-    private function whiten(GdImage $image): GdImage
-    {
-        $w = imagesx($image);
-        $h = imagesy($image);
-        $out = imagecreatetruecolor($w, $h);
-        imagealphablending($out, false);
-        imagesavealpha($out, true);
-        for ($y = 0; $y < $h; $y++) {
-            for ($x = 0; $x < $w; $x++) {
-                imagesetpixel($out, $x, $y, (imagecolorat($image, $x, $y) & 0x7F000000) | 0xFFFFFF);
-            }
-        }
-
-        return $out;
+        $canvas->picture($logo, $x, $ly, $lw, $lh, 'contain');
     }
 
     /**

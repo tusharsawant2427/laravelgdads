@@ -44,7 +44,7 @@ Thirty finished banners, each its own file in `resources/templates/<name>.jpg`:
 The benefit icons and the "Shop Now" button are part of the artwork. The label, the logo, the headline and tagline
 placeholder and the book are removed, and the library draws
 
-- the logo, crisply, in its slot (the bundled Target Publications logo, white on dark artwork; `->logo($path)` replaces it),
+- the logo, crisply, in its slot (the bundled Target Learning Ventures corporate logo, on a white pill over dark artwork; `->logo($path)` replaces it),
 - the product cover, as a 3D book standing where the template's book was (it covers the placeholder completely),
 - the product title (headline) in the template's headline colour, auto-sized to fit, up to 3 lines (characters the font has no
   glyph for are left out instead of printing boxes),

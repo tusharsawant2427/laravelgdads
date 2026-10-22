@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0
+
+### Changed
+- The bundled logo is the Target Learning Ventures corporate logo (https://cdn.targetpublications.org/tlv.webp) instead of
+  the Target Publications one. It is wide (6.8:1), so the logo slots are wider, and on dark artwork it sits on a white pill
+  instead of being turned white (which would hide the mark inside the circle).
+
 ## 2.2.0
 
 ### Added
