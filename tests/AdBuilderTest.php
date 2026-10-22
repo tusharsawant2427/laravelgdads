@@ -731,6 +731,33 @@ final class AdBuilderTest extends TestCase
         $this->assertSame('hindi', TemplateLibrary::pickFor('Sanskrit', 0, 'Sanskrit Aamod Notes for English, Semi-English & Marathi Medium'), 'the subject, not the medium, decides');
     }
 
+    public function test_the_background_follows_the_cover_colour_unless_switched_off_or_the_cover_has_no_colour(): void
+    {
+        $solid = function (array $rgb): string {
+            $c = Canvas::create(200, 280, [255, 255, 255]);
+            $c->rect(20, 16, 160, 240, $rgb);
+            $path = $this->dir . '/solid-' . implode('-', $rgb) . '.png';
+            imagepng($c->image(), $path);
+
+            return $path;
+        };
+        [$w, $h] = TemplateLibrary::dimensions('mathematics', 500);   // a yellow template
+        $make = fn (string $cover, bool $match) => $this->decode(AdBuilder::make()->size($w, $h)->images($cover)->template('mathematics')
+            ->headline('Notes')->matchCoverColour($match)->toPng());
+        $hue = fn (GdImage $img) => Color::toHsl($this->rgb($img, (int) ($w * 0.55), (int) ($h * 0.12)))[0];
+
+        $blue = $solid([30, 80, 200]);
+        $this->assertLessThan(25, abs($hue($make($blue, true)) - 218), 'the background turned blue');
+        $this->assertLessThan(25, abs($hue($make($blue, false)) - 42), 'the designed yellow when matching is off');
+
+        $grey = $solid([110, 110, 110]);
+        $this->assertSame($this->rgb($make($grey, true), 300, 20), $this->rgb($make($grey, false), 300, 20), 'a grey cover leaves the artwork alone');
+
+        // The red Shop Now button keeps its colour whatever the cover.
+        [$r, $g, $b] = $this->rgb($make($blue, true), (int) ($w * 0.10), (int) ($h * 0.88));
+        $this->assertTrue($r > 180 && $g < 60 && $b < 70, "button stays red ({$r},{$g},{$b})");
+    }
+
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
     {
         $img = $this->banner('chemistry', 'Chemistry Notes', null, false);

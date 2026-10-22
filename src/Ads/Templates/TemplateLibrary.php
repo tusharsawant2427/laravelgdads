@@ -5,6 +5,8 @@ namespace Packitifotech\Laragdads\Ads\Templates;
 use GdImage;
 use InvalidArgumentException;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
+use Packitifotech\Laragdads\Ads\Support\Color;
+use Packitifotech\Laragdads\Ads\Support\Recolor;
 
 /**
  * The subject banner templates: one finished piece of artwork per subject (Mathematics, Science, English, Hindi, Marathi,
@@ -85,10 +87,12 @@ final class TemplateLibrary
 
     /**
      * Paint the artwork over the whole canvas (scaled to cover it, centred) and return how plate fractions map to canvas pixels.
+     * With $match (a cover's main colour as [r, g, b]) the background colour of the artwork is moved to that hue; a colourless
+     * cover (white, grey, black) leaves the artwork as designed.
      *
      * @return array{scale:float,x:float,y:float,width:float,height:float}
      */
-    public static function paint(string $name, Canvas $canvas): array
+    public static function paint(string $name, Canvas $canvas, ?array $match = null): array
     {
         $spec = self::spec($name);
         $w = $canvas->width();
@@ -96,7 +100,7 @@ final class TemplateLibrary
         $scale = max($w / $spec['width'], $h / $spec['height']);
         $pw = $spec['width'] * $scale;
         $ph = $spec['height'] * $scale;
-        $canvas->picture(self::plate($name), 0, 0, $w, $h, 'cover');
+        $canvas->picture(self::matched($name, $match), 0, 0, $w, $h, 'cover');
 
         return ['scale' => $scale, 'x' => ($w - $pw) / 2, 'y' => ($h - $ph) / 2, 'width' => $pw, 'height' => $ph];
     }
@@ -208,6 +212,22 @@ final class TemplateLibrary
     private static function manifest(): array
     {
         return self::$manifest ??= require dirname(__DIR__, 3) . '/resources/templates/manifest.php';
+    }
+
+    /** The artwork, with its background recoloured to $match when that is a real colour. */
+    private static function matched(string $name, ?array $match): GdImage
+    {
+        $plate = self::plate($name);
+        if ($match === null) {
+            return $plate;
+        }
+        [$hue, $saturation] = Color::toHsl($match);
+        if ($saturation < 0.18) {
+            return $plate;   // a white, grey or black cover has no colour to match
+        }
+        $spec = self::spec($name);
+
+        return Recolor::hue($plate, $spec['hue'], $spec['saturation'], $hue, max(0.15, min(0.6, $saturation * 0.5)));
     }
 
     private static function plate(string $name): GdImage

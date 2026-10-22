@@ -160,6 +160,21 @@ def ink(im, box, zone):
     return tuple(sorted(p[i] for p in top)[len(top) // 2] for i in range(3))
 
 
+def background_colour(im):
+    """Hue (degrees) and saturation of the artwork's background family: the commonest colourful hue, not counting the reds of the logo and button."""
+    hsv = im.convert('HSV').resize((im.size[0] // 2, im.size[1] // 2))
+    bins = {}
+    for h8, s8, v8 in hsv.getdata():
+        h, sat, v = h8 * 360 / 255, s8 / 255, v8 / 255
+        if 0.12 <= sat <= 0.85 and v > 0.3 and not (h >= 340 or h <= 12):
+            bins.setdefault(int(h // 10), []).append((h, sat))
+    best = max(bins, key=lambda b: len(bins[b]) + len(bins.get(b - 1, [])) + len(bins.get((b + 1) % 36, [])))
+    near = bins[best] + bins.get(best - 1, []) + bins.get((best + 1) % 36, [])
+    hue = sorted(h for h, _ in near)[len(near) // 2]
+    sat = sorted(x for _, x in near)[len(near) // 2]
+    return round(hue, 1), round(sat, 3)
+
+
 def frac(rect, w, h):
     return [round(rect[0] / w, 5), round(rect[1] / h, 5), round(rect[2] / w, 5), round(rect[3] / h, 5)]
 
@@ -187,6 +202,7 @@ def finish(im, key, zone, book, tab, width=None, label_bottom=LABEL[3], face=Non
     if label_bottom:
         fill_patch(im, book[0] + LABEL[0], book[1] + LABEL[2], book[2] - LABEL[1], book[1] + label_bottom, halo=(3, 3, 3))
     bx = (book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1])
+    hue, sat = background_colour(im)
     target = (int(width), round(width * h / w)) if width else (round(w * SCALE), round(h * SCALE))
     im = im.resize(target, Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=2))
     os.makedirs(OUT, exist_ok=True)
@@ -194,7 +210,7 @@ def finish(im, key, zone, book, tab, width=None, label_bottom=LABEL[3], face=Non
     return {
         'file': key + '.jpg', 'width': target[0], 'height': target[1],
         'zone': frac(zone, w, h), 'book': frac(bx, w, h),
-        'ink': list(title_ink), 'tagline' : list(tag_ink),
+        'ink': list(title_ink), 'tagline': list(tag_ink), 'hue': hue, 'saturation': sat,
     }
 
 

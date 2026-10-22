@@ -44,6 +44,9 @@ final class AdSpec
     /** Name of a subject banner template (Templates\\TemplateLibrary). */
     public ?string $template = null;
 
+    /** Templates: move the artwork's background colour to the cover's main colour. */
+    public bool $matchCoverColour = true;
+
     /** Subject label that picked the template, e.g. "Physics + Chemistry + Maths" (informational). */
     public ?string $subject = null;
 

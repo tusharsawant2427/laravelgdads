@@ -30,7 +30,9 @@ final class TemplateLayout extends AbstractLayout
     public function render(Canvas $canvas, AdSpec $spec, Theme $theme, Typography $headingFont, Typography $bodyFont): void
     {
         $template = TemplateLibrary::spec($this->template);
-        $map = TemplateLibrary::paint($this->template, $canvas);
+        // A cover without a usable colour makes the theme fall back to its default indigo: that is not the book's colour.
+        $match = $spec->matchCoverColour && $theme->primary !== Theme::FALLBACK ? $theme->primary : null;
+        $map = TemplateLibrary::paint($this->template, $canvas, $match);
 
         $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
         $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);

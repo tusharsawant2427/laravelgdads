@@ -184,6 +184,14 @@ final class AdBuilder
         return $this;
     }
 
+    /** Templates: recolour the artwork's background to the cover's main colour (the default); false keeps the colours as designed. */
+    public function matchCoverColour(bool $match = true): self
+    {
+        $this->spec->matchCoverColour = $match;
+
+        return $this;
+    }
+
     /** The template in use (chosen by subject() or set with template()), or null. Useful to log or store per book. */
     public function templateName(): ?string
     {

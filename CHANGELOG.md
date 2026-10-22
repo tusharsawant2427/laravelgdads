@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0
+
+### Added
+- Template backgrounds follow the cover: the artwork's background colour is moved to the cover's main colour (logo, red button,
+  lettering and colours far from the background family stay as designed; a white, grey or black cover leaves the artwork as
+  designed). On by default; `->matchCoverColour(false)` keeps the original colours. Costs about 0.06 s per banner.
+
 ## 2.0.1
 
 ### Fixed
