@@ -24,6 +24,11 @@ final class TemplateLibrary
     /** @var array<string, array{ink:string,accent:string,zone:array{0:float,1:float}}> text colour, button colour and the free middle
      *      zone (left and right decoration widths, in units of the canvas height) per template */
 private const PALETTE = [
+        'rainbow-meadow' => ['ink' => '#1f4a78', 'accent' => '#f2862a', 'zone' => [1.75, 1.7], 'compact' => [1.75, 0.85]],
+        'balloon-party' => ['ink' => '#5a2a4a', 'accent' => '#e8527e', 'zone' => [1.1, 1.15], 'compact' => [1.1, 1.15]],
+        'alphabet-blocks' => ['ink' => '#33406a', 'accent' => '#ee6a3a', 'zone' => [1.7, 1.45], 'compact' => [1.7, 0.6]],
+        'starry-night' => ['ink' => '#ffffff', 'accent' => '#f6c13a', 'zone' => [2, 1.7], 'compact' => [1.45, 1.1]],
+        'butterfly-garden' => ['ink' => '#2b5a2f', 'accent' => '#e8527e', 'zone' => [1.05, 1.9], 'compact' => [1.05, 1.35]],
         'sky-atom' => ['ink' => '#1e3a6e', 'accent' => '#1d5fd8', 'zone' => [1.2, 1.7], 'compact' => [1.2, 1.15]],
         'peach-leaves' => ['ink' => '#4a2e1c', 'accent' => '#e8742c', 'zone' => [1.45, 1.1], 'compact' => [1.45, 1.1]],
         'lavender-bubbles' => ['ink' => '#3b2470', 'accent' => '#7c4dd8', 'zone' => [1.3, 0.6], 'compact' => [1.3, 0.55]],
@@ -48,9 +53,9 @@ private const PALETTE = [
         'sunrise-maths' => ['ink' => '#5a2a1c', 'accent' => '#ee6a2a', 'zone' => [2.2, 1.85], 'compact' => [1.35, 0.95]],
         'forest-biology' => ['ink' => '#1f4a28', 'accent' => '#3f9a3e', 'zone' => [1.75, 2], 'compact' => [1, 1.05]],
         'ocean-globe' => ['ink' => '#0f4a5c', 'accent' => '#0e92b0', 'zone' => [1.8, 1.85], 'compact' => [0.9, 0.75]],
-        'navy-success' => ['ink' => '#ffffff', 'accent' => '#f6b823', 'zone' => [0.95, 1.4], 'compact' => [0.95, 1.4]],
+        'navy-success' => ['ink' => '#ffffff', 'accent' => '#f6b823', 'zone' => [0.9, 1.2], 'compact' => [0.9, 1.2]],
         'cream-stationery' => ['ink' => '#4a3520', 'accent' => '#e08a2a', 'zone' => [1.65, 1.4], 'compact' => [0.8, 0.85]],
-        'rose-celebration' => ['ink' => '#5a2040', 'accent' => '#e0457a', 'zone' => [0.9, 1.55], 'compact' => [0.9, 1.55]],
+        'rose-celebration' => ['ink' => '#5a2040', 'accent' => '#e0457a', 'zone' => [0.85, 1.4], 'compact' => [0.85, 1.4]],
         'blueprint-dark' => ['ink' => '#ffffff', 'accent' => '#ffd24a', 'zone' => [2.2, 1.75], 'compact' => [1, 0.85]],
         'sunny-rocket' => ['ink' => '#1c4a78', 'accent' => '#f08a1e', 'zone' => [1.2, 2.05], 'compact' => [0.8, 0.85]],
         'mint-graph-paper' => ['ink' => '#1c4a38', 'accent' => '#2ca066', 'zone' => [1.05, 1.35], 'compact' => [1.05, 0.55]],
@@ -89,13 +94,13 @@ private const PALETTE = [
     private const TAGS = [
         'sky-atom' => ['physics'], 'blue-waves-atom' => ['physics'], 'aqua-atom' => ['physics'], 'cradle-blue' => ['physics'],
         'magnet-purple' => ['physics'], 'prism-rainbow' => ['physics'], 'peach-physics' => ['physics'], 'doodle-grid' => ['physics', 'maths'],
-        'yellow-projectile' => ['physics', 'maths'], 'blueprint-dark' => ['physics', 'computer'], 'books-emc2' => ['physics', 'general'],
+        'yellow-projectile' => ['physics', 'maths'], 'blueprint-dark' => ['physics', 'computer'], 'books-emc2' => ['physics'],
         'mint-chemistry' => ['chemistry'], 'aqua-hex' => ['general', 'chemistry'], 'amber-chemistry' => ['chemistry'],
         'forest-biology' => ['biology'], 'green-leaves' => ['biology', 'environment'], 'peach-leaves' => ['general', 'biology', 'languages'],
         'bulb-leaves' => ['biology', 'reasoning'],
         'sunrise-maths' => ['maths'], 'mint-graph-paper' => ['maths', 'maths-advanced'], 'green-graph' => ['maths'],
         'chalk-calculus' => ['maths-advanced'], 'violet-algebra' => ['maths-advanced'],
-        'ink-letters' => ['languages'], 'rose-bubbles' => ['languages'], 'lavender-books' => ['general', 'languages'],
+        'ink-letters' => ['languages', 'kids'], 'rose-bubbles' => ['languages'], 'lavender-books' => ['general', 'languages'],
         'cream-stationery' => ['general', 'languages'], 'lavender-notebook' => ['general', 'languages'],
         'parchment-history' => ['history'], 'sepia-pillars' => ['history', 'civics'],
         'ocean-globe' => ['geography'], 'terrain-explorer' => ['geography'],
@@ -103,12 +108,14 @@ private const PALETTE = [
         'gold-finance' => ['commerce'], 'green-ledger' => ['commerce'],
         'circuit-tech' => ['computer'], 'code-screen' => ['computer'],
         'brain-calm' => ['psychology'], 'lavender-bubbles' => ['general', 'psychology'],
-        'palette-splash' => ['art'], 'crayon-bright' => ['art'], 'yellow-brush' => ['general', 'art'],
-        'puzzle-bulb' => ['reasoning'], 'teal-exam-clock' => ['general', 'reasoning'],
+        'palette-splash' => ['art', 'kids'], 'crayon-bright' => ['art', 'kids'], 'yellow-brush' => ['general', 'art'],
+        'puzzle-bulb' => ['reasoning', 'kids'], 'teal-exam-clock' => ['general', 'reasoning'],
         'sports-field' => ['sports'], 'defence-shield' => ['sports'],
         'water-green' => ['environment'], 'earth-clean' => ['environment'],
         'coral-waves' => ['general'], 'navy-success' => ['general'], 'rose-celebration' => ['general'],
-        'plum-premium' => ['general'], 'sunny-rocket' => ['general'],
+        'plum-premium' => ['general'], 'sunny-rocket' => ['general', 'kids'],
+        'rainbow-meadow' => ['kids'], 'balloon-party' => ['kids'], 'alphabet-blocks' => ['kids'], 'starry-night' => ['kids'],
+        'butterfly-garden' => ['kids'],
     ];
 
     /** @return string[] */
@@ -128,6 +135,8 @@ private const PALETTE = [
         $w -= max(0, $reserveRight);
         $p = self::PALETTE[$name] ?? throw new \InvalidArgumentException("Unknown template [{$name}].");
         [$l, $r] = ($w / max(1, $h) < self::WIDE && isset($p['compact'])) ? $p['compact'] : $p['zone'];
+        $f = self::factor($name, $w, $h);
+        [$l, $r] = [$l * $f, $r * $f];
 
         return [(int) round($h * $l), $w - (int) round($h * $r)];
     }
@@ -195,7 +204,7 @@ private const PALETTE = [
      * @param  float $productWidth width of the product block that sits at the start of the zone, in heights (see TemplateLayout)
      * @return array{left:float,right:float} the same units as the PALETTE 'zone' entries
      */
-    public static function measureZone(string $name, int $width, int $height, int $reserveRight, float $productWidth = 0.84): array
+    public static function measureZone(string $name, int $width, int $height, int $reserveRight, float $productWidth = self::PRODUCT_WIDTH): array
     {
         $art = self::artwork($name, $width, $height, $reserveRight);
         $effective = $width - $reserveRight;
@@ -255,10 +264,10 @@ private const PALETTE = [
     }
 
     /** @return string[] every template that suits the subject label ("Physics", "PCM", "Eng/Mar/His" ...) */
-    public static function forSubject(string $label): array
+    public static function forSubject(string $label, ?string $title = null): array
     {
         $names = [];
-        foreach (Subjects::pool($label) as $group) {
+        foreach (Subjects::pool($label, $title) as $group) {
             foreach (self::forGroup($group) as $n) {
                 $names[$n] = true;
             }
@@ -268,9 +277,9 @@ private const PALETTE = [
     }
 
     /** One template for the subject; the same $seed always picks the same one, different seeds rotate through the options. */
-    public static function pickFor(string $label, int $seed = 0): string
+    public static function pickFor(string $label, int $seed = 0, ?string $title = null): string
     {
-        $names = self::forSubject($label) ?: self::forGroup('general');
+        $names = self::forSubject($label, $title) ?: self::forGroup('general');
 
         return $names[abs($seed) % count($names)];
     }
@@ -299,7 +308,12 @@ private const PALETTE = [
         $w = $c->width() - max(0, $reserveRight);
         $h = $c->height();
         $method = 't' . str_replace('-', '', ucwords($name, '-'));
-        self::$method($c, $w, $h, $script, $w / max(1, $h) >= self::WIDE);
+        self::$factor = self::factor($name, $w, $h);
+        try {
+            self::$method($c, $w, $h, $script, $w / max(1, $h) >= self::WIDE);
+        } finally {
+            self::$factor = 1.0;
+        }
     }
 
     private static function hex(string $hex): array
@@ -308,6 +322,36 @@ private const PALETTE = [
     }
 
     // ============================================================== sheet 1
+
+    /** Text width (in heights) the text column should keep on lower-ratio banners such as 1200x300. */
+    private const TEXT_ROOM = 1.6;
+
+    /** Width (in heights) of the product block that sits before the text: the book box plus its gap. */
+    private const PRODUCT_WIDTH = 0.84;
+
+    /** Share of the artwork scale in use while painting (see factor()). */
+    private static float $factor = 1.0;
+
+    /**
+     * Banners that are not very wide (about 4:1, e.g. 1200x300) have less room beside the book, so the illustrations and
+     * their reserved zones shrink together until the text column has TEXT_ROOM heights. Wide strips are unaffected (1.0).
+     *
+     * @param int $width width without the button strip
+     */
+    public static function factor(string $name, int $width, int $height): float
+    {
+        $ratio = $width / max(1, $height);
+        if ($ratio >= 4.6) {
+            return 1.0;
+        }
+        $p = self::PALETTE[$name] ?? null;
+        if ($p === null) {
+            return 1.0;
+        }
+        [$l, $r] = isset($p['compact']) ? $p['compact'] : $p['zone'];
+
+        return max(0.45, min(1.0, ($ratio - self::PRODUCT_WIDTH - self::TEXT_ROOM) / max(0.1, $l + $r)));
+    }
 
     /** Templates are drawn as a strip (3.6:1 and wider) or, on tall canvases, as a framed portrait. */
     public static function isPortrait(int $width, int $height): bool
@@ -403,8 +447,27 @@ private const PALETTE = [
         [$bw, $bh] = [$x1 - $x0 + 1, $y1 - $y0 + 1];
         $nw = max(1, (int) round($bw * self::ART_SCALE));
         $nh = max(1, (int) round($bh * self::ART_SCALE));
-        $nx = ($x0 + $bw / 2 < $w / 2) ? $x0 : $x1 + 1 - $nw;
-        $ny = $y1 >= $h * 0.88 ? $y1 + 1 - $nh : ($y0 <= $h * 0.12 ? $y0 : $y0 + (int) round(($bh - $nh) / 2));
+        $left = $x0 + $bw / 2 < $w / 2;
+        $nx = $left ? $x0 : $x1 + 1 - $nw;
+        $anchor = $y1 >= $h * 0.88 ? 'bottom' : ($y0 <= $h * 0.12 ? 'top' : 'middle');
+        $ny = match ($anchor) {
+            'bottom' => $y1 + 1 - $nh,
+            'top' => $y0,
+            default => $y0 + (int) round(($bh - $nh) / 2),
+        };
+
+        // On lower-ratio banners everything also moves towards the side edge it hugs (see factor()).
+        $f = self::$factor;
+        if ($f < 1.0) {
+            [$ow, $oh] = [$nw, $nh];
+            [$nw, $nh] = [max(1, (int) round($ow * $f)), max(1, (int) round($oh * $f))];
+            $nx = $left ? (int) round($nx * $f) : $w - (int) round(($w - $nx - $ow) * $f) - $nw;
+            $ny = match ($anchor) {
+                'bottom' => $ny + $oh - $nh,
+                'top' => $ny,
+                default => $ny + (int) round(($oh - $nh) / 2),
+            };
+        }
 
         $small = imagecreatetruecolor($nw, $nh);
         imagealphablending($small, false);
@@ -738,8 +801,8 @@ private const PALETTE = [
         Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#4a5cb0'), 0.3, 31);
         Doodles::ribbon($c, 0, $w, $h * 0.9, $h * 0.1, 1.4, 0.4, $h * 0.04, self::hex('#f6c13a'), 0.6);
         $bits = [self::hex('#f6c13a'), self::hex('#ffffff'), self::hex('#ee6a8a'), self::hex('#6ac0f0')];
-        Props::confetti($c, 0, 0, (int) ($h * 0.85), $h, $bits, 8, 5);
-        Props::confetti($c, (int) ($w - $h * 1.3), 0, (int) ($h * 0.8), $h, $bits, 8, 6);
+        self::art($c, $w, $h, fn () => Props::confetti($c, 0, 0, (int) ($h * 0.85), $h, $bits, 8, 5));
+        self::art($c, $w, $h, fn () => Props::confetti($c, (int) ($w - $h * 1.3), 0, (int) ($h * 0.8), $h, $bits, 8, 6));
         self::art($c, $w, $h, fn () => Props::gradCap($c, (int) ($h * 0.6), (int) ($h * 0.55), (int) ($h * 0.4), self::hex('#6a80e0')));
         self::art($c, $w, $h, fn () => Props::trophy($c, (int) ($w - $h * 0.55), (int) ($h * 0.98), (int) ($h * 0.72)));
         Doodles::sparkle($c, (int) ($h * 1.05), (int) ($h * 0.25), (int) ($h * 0.07), self::hex('#f6c13a'), 0.95);
@@ -766,8 +829,8 @@ private const PALETTE = [
         Doodles::wave($c, 0, (int) ($w * 0.5), $h * 0.9, $h * 0.14, 1.4, 0.2, self::hex('#f8a8bd'), 0.5);
         Doodles::wave($c, (int) ($w * 0.5), $w, $h * 0.9, $h * 0.14, 1.4, 1.6, self::hex('#f7b8a8'), 0.5);
         $bits = [self::hex('#e8527e'), self::hex('#f6b823'), self::hex('#7a5be0'), self::hex('#3aa8d8')];
-        Props::confetti($c, 0, 0, (int) ($h * 0.9), $h, $bits, 9, 7);
-        Props::confetti($c, (int) ($w - $h * 1.5), 0, (int) ($h * 0.9), $h, $bits, 9, 8);
+        self::art($c, $w, $h, fn () => Props::confetti($c, 0, 0, (int) ($h * 0.9), $h, $bits, 9, 7));
+        self::art($c, $w, $h, fn () => Props::confetti($c, (int) ($w - $h * 1.5), 0, (int) ($h * 0.9), $h, $bits, 9, 8));
         self::art($c, $w, $h, fn () => Props::gradCap($c, (int) ($h * 0.55), (int) ($h * 0.55), (int) ($h * 0.4), self::hex('#c03a68')));
         Doodles::sparkle($c, (int) ($w - $h * 0.55), (int) ($h * 0.5), (int) ($h * 0.16), self::hex('#f6b823'), 1.0);
         Doodles::sparkle($c, (int) ($w - $h * 0.95), (int) ($h * 0.22), (int) ($h * 0.07), self::hex('#e8527e'), 0.9);
@@ -1145,5 +1208,81 @@ private const PALETTE = [
             self::art($c, $w, $h, fn () => Doodles::sprig($c, (int) ($h * 1.7), (int) ($h * 1.0), (int) ($h * 0.7), 22, self::hex('#2b6b2f'), false, 6, 0.95, 15));
             self::art($c, $w, $h, fn () => SubjectProps::sprout($c, (int) ($w - $h * 1.7), (int) ($h * 0.97), (int) ($h * 0.6)));
         }
+    }
+    private static function tRainbowMeadow(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#cfeefc'), self::hex('#f3fbff'), 'vertical');
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.12, 2.2, 0.5, self::hex('#9ad87a'), 0.85);
+        Doodles::wave($c, 0, $w, $h * 1.08, $h * 0.1, 2.8, 1.6, self::hex('#74c455'), 0.9);
+        self::art($c, $w, $h, fn () => KidsProps::rainbow($c, (int) ($h * 0.85), (int) ($h * 1.0), (int) ($h * 1.45)));
+        self::art($c, $w, $h, fn () => KidsProps::sun($c, (int) ($w - $h * 0.55), (int) ($h * 0.38), (int) ($h * 0.42)));
+        self::art($c, $w, $h, fn () => Props::cloud($c, (int) ($h * 1.55), (int) ($h * 0.22), (int) ($h * 0.3)));
+        if ($wide) {
+            self::art($c, $w, $h, fn () => KidsProps::flower($c, (int) ($w - $h * 1.55), (int) ($h * 0.98), (int) ($h * 0.6)));
+            self::art($c, $w, $h, fn () => Props::cloud($c, (int) ($w - $h * 1.2), (int) ($h * 0.2), (int) ($h * 0.3)));
+        }
+    }
+
+    private static function tBalloonParty(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#ffe3ee'), self::hex('#fff7e9'), 'horizontal');
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#fffdf8'), 0.8, 61);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.1, 2.0, 0.4, self::hex('#fbc4d6'), 0.6);
+        self::art($c, $w, $h, fn () => KidsProps::balloon($c, (int) ($h * 0.42), (int) ($h * 0.42), (int) ($h * 0.42), [238, 84, 100]));
+        self::art($c, $w, $h, fn () => KidsProps::balloon($c, (int) ($h * 0.9), (int) ($h * 0.34), (int) ($h * 0.36), [250, 196, 50]));
+        self::art($c, $w, $h, fn () => KidsProps::balloon($c, (int) ($h * 0.66), (int) ($h * 0.66), (int) ($h * 0.3), [70, 150, 230]));
+        self::art($c, $w, $h, fn () => KidsProps::balloon($c, (int) ($w - $h * 0.5), (int) ($h * 0.4), (int) ($h * 0.42), [140, 100, 220]));
+        self::art($c, $w, $h, fn () => KidsProps::balloon($c, (int) ($w - $h * 0.98), (int) ($h * 0.5), (int) ($h * 0.34), [90, 190, 120]));
+        Doodles::sparkle($c, (int) ($h * 1.35), (int) ($h * 0.2), (int) ($h * 0.07), self::hex('#f6b823'), 0.95);
+        Doodles::sparkle($c, (int) ($w - $h * 1.45), (int) ($h * 0.82), (int) ($h * 0.06), self::hex('#e8527e'), 0.9);
+        Doodles::dots($c, (int) ($w * 0.5), (int) ($h * 0.05), 8, 3, (int) ($h * 0.085), self::hex('#e8527e'), 0.35);
+    }
+
+    private static function tAlphabetBlocks(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        $bold = new Typography(dirname(__DIR__, 3) . '/resources/fonts/DejaVuSans-Bold.ttf');
+        Doodles::wash($c, self::hex('#fff1bf'), self::hex('#fffbe8'), 'horizontal');
+        Doodles::blob($c, (int) ($h * 0.7), (int) ($h * 0.9), (int) ($h * 1.2), (int) ($h * 0.6), self::hex('#ffe08a'), 0.55, 62);
+        Doodles::blob($c, (int) ($w * 0.95), (int) ($h * 0.8), (int) ($h * 1.2), (int) ($h * 0.6), self::hex('#ffd7a0'), 0.55, 63);
+        self::art($c, $w, $h, fn () => SubjectProps::blocks($c, (int) ($h * 0.15), (int) ($h * 0.98), (int) ($h * 0.42), $bold, ['A', 'B', 'C']));
+        if ($wide) {
+            self::art($c, $w, $h, fn () => SubjectProps::blocks($c, (int) ($w - $h * 1.55), (int) ($h * 0.98), (int) ($h * 0.42), $bold, ['1', '2', '3']));
+        }
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($h * 1.55), (int) ($h * 0.25), (int) ($h * 0.12), [250, 190, 50]));
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($w - $h * 0.45), (int) ($h * 0.25), (int) ($h * 0.16), [238, 100, 90]));
+        Doodles::dots($c, (int) ($w * 0.9), (int) ($h * 0.7), 5, 3, (int) ($h * 0.085), self::hex('#d8a050'), 0.5);
+    }
+
+    private static function tStarryNight(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#1a2766'), self::hex('#3b4aa0'), 'horizontal');
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#4a5cb8'), 0.3, 64);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.1, 2.0, 0.8, self::hex('#27368a'), 0.9);
+        self::art($c, $w, $h, fn () => KidsProps::moon($c, (int) ($h * 0.62), (int) ($h * 0.5), (int) ($h * 0.5)));
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($h * 1.3), (int) ($h * 0.25), (int) ($h * 0.12), [252, 228, 130]));
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($h * 1.1), (int) ($h * 0.75), (int) ($h * 0.08), [255, 255, 255]));
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($w - $h * 0.5), (int) ($h * 0.3), (int) ($h * 0.2), [252, 214, 90]));
+        self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($w - $h * 1.0), (int) ($h * 0.68), (int) ($h * 0.1), [255, 255, 255]));
+        if ($wide) {
+            self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($w - $h * 1.6), (int) ($h * 0.25), (int) ($h * 0.09), [252, 228, 130]));
+            self::art($c, $w, $h, fn () => KidsProps::star($c, (int) ($h * 1.9), (int) ($h * 0.5), (int) ($h * 0.07), [255, 255, 255]));
+        }
+        Doodles::sparkle($c, (int) ($h * 1.55), (int) ($h * 0.55), (int) ($h * 0.06), self::hex('#ffffff'), 0.9);
+    }
+
+    private static function tButterflyGarden(Canvas $c, int $w, int $h, Typography $s, bool $wide): void
+    {
+        Doodles::wash($c, self::hex('#e2f7d4'), self::hex('#fff9e2'), 'horizontal');
+        Doodles::blob($c, (int) ($w * 0.5), (int) ($h * 0.5), (int) ($w * 0.34), (int) ($h * 0.7), self::hex('#fffef6'), 0.85, 65);
+        Doodles::wave($c, 0, $w, $h * 1.0, $h * 0.12, 2.2, 0.2, self::hex('#a6dc88'), 0.8);
+        Doodles::wave($c, 0, $w, $h * 1.08, $h * 0.1, 2.6, 1.1, self::hex('#82c862'), 0.9);
+        self::art($c, $w, $h, fn () => KidsProps::flower($c, (int) ($h * 0.4), (int) ($h * 0.99), (int) ($h * 0.8), [238, 84, 130]));
+        self::art($c, $w, $h, fn () => KidsProps::flower($c, (int) ($h * 0.9), (int) ($h * 0.99), (int) ($h * 0.55), [250, 170, 50]));
+        self::art($c, $w, $h, fn () => KidsProps::butterfly($c, (int) ($w - $h * 0.55), (int) ($h * 0.38), (int) ($h * 0.5), [140, 100, 220]));
+        self::art($c, $w, $h, fn () => KidsProps::butterfly($c, (int) ($w - $h * 1.15), (int) ($h * 0.66), (int) ($h * 0.32), [238, 130, 60]));
+        if ($wide) {
+            self::art($c, $w, $h, fn () => KidsProps::flower($c, (int) ($w - $h * 1.75), (int) ($h * 0.99), (int) ($h * 0.55), [140, 100, 220]));
+        }
+        Doodles::dots($c, (int) ($w * 0.5), (int) ($h * 0.05), 8, 3, (int) ($h * 0.085), self::hex('#6cb050'), 0.4);
     }
 }

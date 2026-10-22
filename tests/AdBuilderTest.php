@@ -542,7 +542,7 @@ final class AdBuilderTest extends TestCase
     public function test_every_template_paints_a_distinct_background_with_readable_ink(): void
     {
         $names = TemplateLibrary::names();
-        $this->assertCount(53, $names);
+        $this->assertCount(58, $names);
 
         $seen = [];
         foreach ($names as $name) {
@@ -562,7 +562,7 @@ final class AdBuilderTest extends TestCase
             imagepng($c->image());
             $seen[md5((string) ob_get_clean())] = true;
         }
-        $this->assertCount(53, $seen, 'every template looks different');
+        $this->assertCount(58, $seen, 'every template looks different');
     }
 
     public function test_declared_zones_clear_the_artwork_and_leave_room_for_text(): void
@@ -582,6 +582,35 @@ final class AdBuilderTest extends TestCase
                 $this->assertGreaterThanOrEqual(1.0 * $h, $x1 - $x0 - 0.84 * $h, "{$name} {$w}x{$h}: room for the text column");
             }
         }
+    }
+
+    public function test_zones_hold_on_a_1200x300_banner_without_a_button(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            $art = TemplateLibrary::artwork($name, 1200, 300, 0);
+            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 300, 0);
+            $this->assertGreaterThanOrEqual($art['left'] * 300 - 3, $x0, "{$name}: zone starts after the left artwork");
+            $this->assertLessThanOrEqual(1200 - $art['right'] * 300 + 3, $x1, "{$name}: zone ends before the right artwork");
+            $this->assertGreaterThanOrEqual(1.2 * 300, $x1 - $x0 - TemplateLayout::BOOK_WIDTH * 300 - TemplateLayout::BOOK_GAP * 300, "{$name}: room for the headline");
+        }
+    }
+
+    public function test_children_books_get_children_templates_and_general_has_no_subject_art(): void
+    {
+        $kids = TemplateLibrary::forGroup('kids');
+        $this->assertGreaterThanOrEqual(8, count($kids));
+        foreach (['Colouring Book', 'Activity Book', 'Blossom Colouring Book for 5+ Year Old Kids Part C1', 'Nursery Rhymes'] as $title) {
+            $this->assertSame(['kids'], Subjects::pool($title), $title);
+            $this->assertContains(TemplateLibrary::pickFor($title, 167), $kids, $title);
+        }
+        $this->assertSame(['physics'], Subjects::pool('MHT-CET Physics Notes'));
+        $this->assertNotContains('books-emc2', TemplateLibrary::forGroup('general'), 'the atom template is physics only');
+        $this->assertSame([], Subjects::unknown('Colouring Book'));
+        // a children's title wins over the subject filter; an unknown subject falls back to the title
+        $this->assertSame(['kids'], Subjects::pool('English', 'Blossom Colouring Book for 5+ Year Old Kids'));
+        $this->assertSame(['physics'], Subjects::pool('Some new subject', 'MHT-CET Physics Notes'));
+        $this->assertSame(['languages'], Subjects::pool('English', 'Grammar Practice Book'));
+        $this->assertContains(AdBuilder::make()->subject('English', 167, 'Colouring Book for Kids')->templateName(), $kids);
     }
 
     public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void

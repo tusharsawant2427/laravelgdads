@@ -9,14 +9,32 @@ namespace Packitifotech\Laragdads\Ads\Templates;
  * are split and resolved subject by subject.
  *
  * Groups: physics, chemistry, biology, maths, maths-advanced, languages, history, geography, civics, commerce, computer,
- * psychology, art, reasoning, sports, environment and general (the fallback and the pool for multi-subject books).
+ * psychology, art, reasoning, sports, environment, kids (colouring, activity, rhymes, stories, alphabets ...) and general (the
+ * fallback and the pool for multi-subject books). Titles work too: when a label is not a known subject, the words in it
+ * ("Colouring Book for 5+ Year Old Kids", "MHT-CET Physics Notes") are matched against keywords.
  */
 final class Subjects
 {
     /** @var string[] */
     public const GROUPS = [
         'physics', 'chemistry', 'biology', 'maths', 'maths-advanced', 'languages', 'history', 'geography', 'civics',
-        'commerce', 'computer', 'psychology', 'art', 'reasoning', 'sports', 'environment', 'general',
+        'commerce', 'computer', 'psychology', 'art', 'reasoning', 'sports', 'environment', 'kids', 'general',
+    ];
+
+    /**
+     * Words that identify a subject inside a longer text such as a product title. Checked in order of appearance in the text.
+     *
+     * @var array<string, string[]>
+     */
+    private const KEYWORDS = [
+        'coloring' => ['kids', 'art'], 'activity' => ['kids'], 'kids' => ['kids'], 'children' => ['kids'], 'nursery' => ['kids'],
+        'rhymes' => ['kids'], 'alphabet' => ['kids'], 'preschool' => ['kids'], 'drawing' => ['art'],
+        'physics' => ['physics'], 'chemistry' => ['chemistry'], 'biology' => ['biology'], 'maths' => ['maths'],
+        'mathematics' => ['maths'], 'algebra' => ['maths-advanced'], 'calculus' => ['maths-advanced'],
+        'trigonometry' => ['maths-advanced'], 'english' => ['languages'], 'hindi' => ['languages'], 'marathi' => ['languages'],
+        'sanskrit' => ['languages'], 'grammar' => ['languages'], 'history' => ['history'], 'geography' => ['geography'],
+        'civics' => ['civics'], 'accounts' => ['commerce'], 'accountancy' => ['commerce'], 'economics' => ['commerce'],
+        'computer' => ['computer'], 'psychology' => ['psychology'], 'reasoning' => ['reasoning'], 'evs' => ['environment'],
     ];
 
     /** Short forms used inside combined labels such as "Eng/Hin/Mar/His/Geo/Math/Sci". */
@@ -64,7 +82,11 @@ final class Subjects
         'applied electronics' => ['computer'], 'digital electronics' => ['computer'],
         // others
         'psychology' => ['psychology'], 'value education' => ['psychology'],
-        'art and craft' => ['art'], 'drawing and coloring' => ['art'],
+        'art and craft' => ['art'], 'drawing and coloring' => ['art'], 'drawing' => ['art'],
+        // children's books
+        'kids' => ['kids'], 'children' => ['kids'], 'coloring' => ['kids', 'art'], 'coloring book' => ['kids', 'art'],
+        'activity' => ['kids'], 'activity book' => ['kids'], 'nursery' => ['kids'], 'rhymes' => ['kids'],
+        'stories' => ['kids'], 'alphabet' => ['kids'], 'abc' => ['kids'], 'preschool' => ['kids'], 'early learning' => ['kids'],
         'general test' => ['reasoning'], 'general knowledge' => ['reasoning'], 'reasoning' => ['reasoning'],
         'physical education' => ['sports'], 'defence studies' => ['sports'],
         'evs' => ['environment'], 'water security' => ['environment'],
@@ -126,7 +148,7 @@ final class Subjects
     {
         $groups = [];
         foreach (self::subjects($label) as $subject) {
-            foreach (self::MAP[$subject] ?? [] as $g) {
+            foreach (self::resolve($subject) as $g) {
                 $groups[$g] = true;
             }
         }
@@ -134,21 +156,53 @@ final class Subjects
         return $groups ? array_keys($groups) : ['general'];
     }
 
+    /** Groups for one normalised subject: its entry in the catalogue, else the keywords found in the text. */
+    private static function resolve(string $subject): array
+    {
+        if (isset(self::MAP[$subject])) {
+            return self::MAP[$subject];
+        }
+        $groups = [];
+        foreach (preg_split('/[^a-z0-9]+/u', $subject, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
+            $word = self::TYPOS[$word] ?? $word;
+            foreach (self::KEYWORDS[$word] ?? [] as $g) {
+                $groups[$g] = true;
+            }
+        }
+
+        return array_keys($groups);
+    }
+
     /** Subject names in the label that this class does not know (typos not covered, new subjects). */
     public static function unknown(string $label): array
     {
-        return array_values(array_filter(self::subjects($label), fn ($s) => !isset(self::MAP[$s])));
+        return array_values(array_filter(self::subjects($label), fn ($s) => self::resolve($s) === []));
     }
 
     /**
      * The pool of template groups to choose from: a single group for a single theme, the union for a few related
-     * sciences, and 'general' for a mix (languages + social studies + maths + science ...).
+     * sciences, and 'general' for a mix (languages + social studies + maths + science ...). The optional title (a product
+     * name such as "Blossom Colouring Book for 5+ Year Old Kids") refines the choice: see above.
      *
      * @return string[]
      */
-    public static function pool(string $label): array
+    public static function pool(string $label, ?string $title = null): array
     {
         $groups = self::groups($label);
+
+        if ($title !== null && trim($title) !== '') {
+            // The title can say more than the subject filter: a colouring book filed under "English" is still a children's book,
+            // and an unrecognised subject falls back to what the title is about.
+            $found = array_keys(array_flip(array_merge(...array_map(fn ($s) => self::resolve($s), self::subjects($title))) ?: []));
+            if (in_array('kids', $found, true)) {
+                $groups = ['kids'];
+            } elseif ($groups === ['general'] && $found !== []) {
+                $groups = $found;
+            }
+        }
+        if (in_array('kids', $groups, true)) {
+            return ['kids'];   // a children's book keeps its playful look whatever else is mentioned
+        }
         if (count($groups) === 1) {
             return $groups;
         }

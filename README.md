@@ -21,7 +21,7 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 
 - **Fluent builder**: one readable chain per ad.
 - **Ad-size presets** (`AdSize`): 300x250, 728x90, 970x250, 300x600, 160x600, 320x50/100, 1080x1080, 1080x1350, 1080x1920, 1200x628 and more. Render one creative to many sizes with `renderSizes()`.
-- **Layouts**: `stacked` (the plain layout: product(s) on top, text below; used for square, portrait, story and other non-wide sizes), `showcase` (wide banners: a cover on each side, message in the middle), `hero` (full-bleed photo with a scrim), `companion` (light illustrated ad) and the 53 illustrated `template`s for strips. `auto` picks one from the size. Register your own with `AdBuilder::registerLayout()`.
+- **Layouts**: `stacked` (the plain layout: product(s) on top, text below; used for square, portrait, story and other non-wide sizes), `showcase` (wide banners: a cover on each side, message in the middle), `hero` (full-bleed photo with a scrim), `companion` (light illustrated ad) and the 58 illustrated `template`s for strips and portraits. `auto` picks one from the size. Register your own with `AdBuilder::registerLayout()`.
 - **Colour from the image**: the dominant brand hue becomes the background; headline and button colours are picked for readable contrast (WCAG AA).
 - **Packshot cut-out**: a flat white studio background is removed, white areas inside the product are kept, and the baked-in drop shadow turns into a real soft shadow.
 - **Auto-fitting text**: headline, sub-headline and tick-list shrink and wrap to fit any size; text that cannot fit is ellipsised.
@@ -29,7 +29,7 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 - **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `paper` (light page), `mesh` (simple), `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
 
-## Illustrated templates (53 banner styles, grouped by subject)
+## Illustrated templates (58 banner styles, grouped by subject)
 
 Ready-made backgrounds (mostly light, a few dark) with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
 patterns, and props for physics (atom, bulb, prism, magnet, Newton's cradle, graphs), chemistry (flasks, test tubes, molecule), maths (protractor, ruler, set square, calculator), biology (DNA, microscope), geography (globe), success (trophy, graduation cap, confetti) and more: stacked books, notebook, plant, clock, rocket, clouds).
@@ -60,13 +60,17 @@ TemplateLibrary::paint('prism-rainbow', Canvas::create(2000, 256));
 ### Templates by subject
 
 Each template belongs to one or more theme groups (physics, chemistry, biology, maths, maths-advanced, languages, history,
-geography, civics, commerce, computer, psychology, art, reasoning, sports, environment, general). Give the subject and the
+geography, civics, commerce, computer, psychology, art, reasoning, sports, environment, kids, general). Give the subject and the
 library picks a template that suits it. Subject labels are normalised, so typos (`Alegbra`, `Trignometry`, `General Knowlegde`),
 spacing and short forms (`Eng/Mar/His`, `PCM`, `Physics + Chemistry + Maths`) all work.
 
 ```php
 Laragdads::ad()->size(AdSize::STRIP)->images($cover)->subject('Physics + Chemistry + Maths')   // a PCM look
     ->headline('PCM Notes')->cta('Buy now')->save('ads/pcm.png');
+
+// Pass the product title too: a colouring/activity book gets a children's template even when it is filed under "English",
+// and an unknown subject falls back to the keywords in the title.
+->subject($subjectName, variant: $product->id, title: $product->title);
 
 ->subject('Calculus', variant: 2);                  // rotate through that subject's templates, one look per title
 TemplateLibrary::forSubject('Accounts');            // all templates that suit a subject

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+- Children's templates and a `kids` subject group: `rainbow-meadow`, `balloon-party`, `alphabet-blocks`, `starry-night` and
+  `butterfly-garden` (58 templates now), chosen for colouring, activity, nursery, rhymes, stories and alphabet books.
+- `->subject($label, $variant, $title)` / `TemplateLibrary::pickFor($label, $seed, $title)`: the product title refines the
+  choice. A children's title wins over the subject filter, and an unrecognised subject falls back to keywords in the title.
+
+### Fixed
+- Banners that are not very wide (about 4:1, e.g. 1200x300) were cramped: the illustrations and their reserved zones now
+  shrink together until the headline has room, instead of squeezing the text into a narrow column.
+- The physics-only `books-emc2` (atom) template is no longer in the `general` pool, so books without a recognised subject do
+  not get a physics illustration.
+
 ## 1.0.1
 
 ### Fixed

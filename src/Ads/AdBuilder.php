@@ -171,12 +171,14 @@ final class AdBuilder
      * Pick a template that suits the subject: "Physics", "PCM", "Computer Science - I", "Eng/Mar/His", "Alegbra" (typos and
      * short forms are understood, see Templates\Subjects). $variant rotates through the templates of that subject, so a
      * book series can use a different look per title; the same variant always gives the same template.
+     * Pass the product title as $title too and the look follows what the book is about: a colouring or activity book gets a
+     * children's template even when it is filed under "English", and an unknown subject falls back to the title's keywords.
      * Call ->template($name) afterwards to override the choice.
      */
-    public function subject(string $label, int $variant = 0): self
+    public function subject(string $label, int $variant = 0, ?string $title = null): self
     {
         $this->spec->subject = $label;
-        $this->spec->template = TemplateLibrary::pickFor($label, $variant);
+        $this->spec->template = TemplateLibrary::pickFor($label, $variant, $title);
 
         return $this;
     }
