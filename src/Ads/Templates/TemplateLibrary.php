@@ -166,6 +166,11 @@ final class TemplateLibrary
 
     public const BANNER_HEIGHT = 300;
 
+    /** The size block ads are made at for the site: 827x1063 (portrait, like the existing block ads). The plates themselves are 300x250 (1.2:1). */
+    public const BLOCK_WIDTH = 827;
+
+    public const BLOCK_HEIGHT = 1063;
+
     /**
      * The size to render a template at without cropping it: the given width and the matching height. The templates do not
      * share one aspect ratio, so ask each for its own size.
@@ -195,6 +200,9 @@ final class TemplateLibrary
         $w = $canvas->width();
         $h = $canvas->height();
         $plate = self::matched($name, $match, $accent);
+        if (self::isBlock($name) && $w < $h * 0.9) {
+            return self::paintPortrait($spec, $plate, $canvas);
+        }
         $scale = $h / $spec['height'];
         $pw = $spec['width'] * $scale;
         $map = ['scale' => $scale, 'x' => 0.0, 'y' => 0.0, 'width' => $pw, 'height' => (float) $h];
@@ -224,6 +232,65 @@ final class TemplateLibrary
         $map['x'] = -max(0.0, $pw - $w) * $focus;
 
         return $map;
+    }
+
+    /**
+     * A block plate on a portrait canvas (827x1063): the plate is scaled to the canvas width and sits at the bottom; the room above it is a
+     * band of its own top-edge colours (a soft wash, art fades into it) for the logo and the title.
+     *
+     * @return array{scale:float,x:float,y:float,width:float,height:float,band:int}
+     */
+    private static function paintPortrait(array $spec, GdImage $plate, Canvas $canvas): array
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $scale = $w / $spec['width'];
+        $ph = (int) round($spec['height'] * $scale);
+        $band = max(0, $h - $ph);
+
+        $out = imagecreatetruecolor($w, $h);
+        imagecopyresampled($out, $plate, 0, $band, 0, 0, $w, $ph, imagesx($plate), imagesy($plate));
+
+        // The band: the plate's top-edge colour at each x (median of a few rows), blurred sideways.
+        $sw = imagesx($plate);
+        $sh = imagesy($plate);
+        $cols = [];
+        for ($x = 0; $x < $w; $x++) {
+            $sx = min($sw - 1, (int) ($x * $sw / $w));
+            $rgb = [0, 0, 0];
+            for ($y = 0; $y < 6; $y++) {
+                $c = imagecolorat($plate, $sx, (int) round($sh * 0.03) + $y);   // a few rows in: the very edge can be a stray light line
+                $rgb[0] += ($c >> 16) & 255;
+                $rgb[1] += ($c >> 8) & 255;
+                $rgb[2] += $c & 255;
+            }
+            $cols[$x] = [$rgb[0] / 6, $rgb[1] / 6, $rgb[2] / 6];
+        }
+        $radius = (int) round($w * 0.08);
+        $fade = (int) round($ph * 0.09);
+        for ($x = 0; $x < $w; $x++) {
+            $lo = max(0, $x - $radius);
+            $hi = min($w - 1, $x + $radius);
+            $sum = [0, 0, 0];
+            for ($k = $lo; $k <= $hi; $k++) {
+                $sum[0] += $cols[$k][0];
+                $sum[1] += $cols[$k][1];
+                $sum[2] += $cols[$k][2];
+            }
+            $n = $hi - $lo + 1;
+            $avg = [$sum[0] / $n, $sum[1] / $n, $sum[2] / $n];
+            for ($y = 0; $y < $band + $fade; $y++) {
+                $t = $y < $band ? 1.0 : 1 - ($y - $band) / max(1, $fade);   // over the plate's top edge the band fades out
+                $c = imagecolorat($out, $x, $y);
+                $r = (int) round($avg[0] * $t + (($c >> 16) & 255) * (1 - $t));
+                $g = (int) round($avg[1] * $t + (($c >> 8) & 255) * (1 - $t));
+                $b = (int) round($avg[2] * $t + ($c & 255) * (1 - $t));
+                imagesetpixel($out, $x, $y, $r << 16 | $g << 8 | $b);
+            }
+        }
+        $canvas->picture($out, 0, 0, $w, $h, 'cover');
+
+        return ['scale' => $scale, 'x' => 0.0, 'y' => (float) $band, 'width' => (float) $w, 'height' => (float) $ph, 'band' => $band];
     }
 
     /** The empty background that is widened for a wider canvas: from half way to 80% of the headline zone's width. @return float[] fractions of the plate */

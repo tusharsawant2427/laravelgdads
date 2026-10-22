@@ -38,6 +38,11 @@ final class TemplateLayout extends AbstractLayout
         $template = TemplateLibrary::spec($name);
         $map = TemplateLibrary::paint($name, $canvas, $match, $match === null ? null : $this->buttonColour($theme));
 
+        if (isset($map['band'])) {
+            $this->renderBlockPortrait($canvas, $spec, $headingFont, $bodyFont, $map, $template, $name);
+
+            return;
+        }
         $this->brand($canvas, $spec, TemplateLibrary::rect($template['logo'], $map), $template['logoDark']);
         if ($template['book'] !== null) {
             $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
@@ -76,6 +81,41 @@ final class TemplateLayout extends AbstractLayout
             $fit = $bodyFont->fit($tagline, $w, $h, (int) round($h * 0.8), 7, 1.1, 1);
             $canvas->lines($fit['lines'], $bodyFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['tagline'], 'left', $fit['lineHeight']);
         }
+    }
+
+    /**
+     * A block ad on the portrait canvas (827x1063): logo and the product title in the band above the artwork, a tall list of feature chips on
+     * the left, and a big cover on the right standing over the artwork's book (which it covers completely) and reaching up into the band.
+     */
+    private function renderBlockPortrait(Canvas $canvas, AdSpec $spec, Typography $headingFont, Typography $bodyFont, array $map, array $template, string $name): void
+    {
+        $w = $canvas->width();
+        $h = $canvas->height();
+        $band = $map['band'];
+        $m = (int) round($w * 0.055);
+
+        $lw = (int) round($w * 0.42);
+        $lh = (int) round($lw / 6.76);
+        $this->brand($canvas, $spec, [$m, (int) round($h * 0.035), $lw, $lh], $template['logoDark']);
+
+        // The cover: bottom on the artwork's book, as tall as the room allows.
+        $book = TemplateLibrary::rect($template['book'], $map);
+        $button = TemplateLibrary::rect($template['button'], $map);
+        $ch = (int) round($h * 0.54);
+        $right = min($w - (int) round($w * 0.03), $book[0] + $book[2] + (int) round($w * 0.03));
+        $cw = min((int) round($w * 0.46), $right - ($button[0] + $button[2] + (int) round($w * 0.02)));   // never over the Shop Now button
+        $cx = $right - $cw;
+        $cy = min($h - 12, $book[1] + $book[3] + (int) round($h * 0.006)) - $ch;
+        $this->product($canvas, $spec, [$cx, $cy, $cw, $ch], $template['ink']);
+
+        // Title and tagline in the band.
+        $top = (int) round($h * 0.035) + $lh + (int) round($h * 0.022);
+        $this->copy($canvas, $spec, $headingFont, $bodyFont, [$m, $top, $w - 2 * $m, max(40, $band - $top - (int) round($h * 0.02))], $template);
+
+        // Feature chips: from under the band to above the button, left of the cover.
+        $y0 = $band + (int) round($map['height'] * 0.12);
+        $y1 = $button[1] - (int) round($h * 0.02);
+        $this->features($canvas, $spec, $bodyFont, [$m, $y0, max(60, $cx - $m - (int) round($w * 0.03)), max(60, $y1 - $y0)], $template, $name);
     }
 
     /** Icon for a feature label, chosen by the words in it. */
@@ -162,7 +202,7 @@ final class TemplateLayout extends AbstractLayout
 
             $lx = $x + $d + (int) round($d * 0.3);
             $lw = $w - $d - (int) round($d * 0.3);
-            $fit = $font->fit($label, $lw, $rowH, (int) round($d * 0.7), 6, 1.05, 1);
+            $fit = $font->fit($label, $lw, $rowH, (int) round($d * 0.7), 6, 1.05, $rowH > 60 ? 2 : 1);
             $canvas->lines($fit['lines'], $font, $fit['size'], $lx, $cy - intdiv($fit['height'], 2), $lw, $ink, 'left', $fit['lineHeight']);
         }
     }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.0
+
+### Added
+- Block ads at the site's size, 827x1063 (`TemplateLibrary::BLOCK_WIDTH` / `BLOCK_HEIGHT`, the size of the existing block ads): the plate sits at the
+  bottom, a band of its top-edge colours above it carries the logo and the title, features become a tall chip list and the cover is big.
+  300x250 still works.
+
 ## 3.0.0
 
 ### Added

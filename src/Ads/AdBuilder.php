@@ -580,9 +580,10 @@ final class AdBuilder
             $target = $this->spec->aspectRatio();
             $block = TemplateLibrary::isBlock($this->spec->template);
             // Wide templates may be widened up to 2.1x; the block ones (1.2:1) are made at 300x250 or a scaled copy of it.
-            if ($target < $ratio * 0.8 || $target > $ratio * ($block ? 1.25 : 2.1)) {
+            $portrait = $block && $target > 0.7 && $target < 0.86;   // 827x1063: the block size of the site
+            if (!$portrait && ($target < $ratio * 0.8 || $target > $ratio * ($block ? 1.25 : 2.1))) {
                 [$w, $h] = TemplateLibrary::dimensions($this->spec->template, $this->spec->width);
-                $hint = $block ? "{$w}x{$h} (300x250 is the block size)" : TemplateLibrary::BANNER_WIDTH . 'x' . TemplateLibrary::BANNER_HEIGHT . " or {$w}x{$h}";
+                $hint = $block ? TemplateLibrary::BLOCK_WIDTH . 'x' . TemplateLibrary::BLOCK_HEIGHT . ' or 300x250' : TemplateLibrary::BANNER_WIDTH . 'x' . TemplateLibrary::BANNER_HEIGHT . " or {$w}x{$h}";
                 throw new InvalidArgumentException("Template [{$this->spec->template}] is " . round($ratio, 2) . ":1, too far from {$this->spec->width}x{$this->spec->height} (" . round($target, 2) . ":1). Use e.g. {$hint}.");
             }
 

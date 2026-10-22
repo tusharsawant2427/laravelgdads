@@ -988,6 +988,35 @@ final class AdBuilderTest extends TestCase
         }
     }
 
+    public function test_block_ads_render_at_the_sites_827x1063_with_the_cover_title_logo_and_features(): void
+    {
+        $w = TemplateLibrary::BLOCK_WIDTH;
+        $h = TemplateLibrary::BLOCK_HEIGHT;
+        $this->assertSame([827, 1063], [$w, $h]);
+        foreach (TemplateLibrary::blockNames() as $name) {
+            $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Std. X Mathematics Part 1')
+                ->features(['Solved Examples', 'Practice Questions'])->font($this->font)->matchCoverColour(false)->toPng());
+            $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], $name);
+
+            // The packshot's purple cover is on the right half, below the title band.
+            $found = 0;
+            for ($y = (int) ($h * 0.45); $y < $h - 20; $y += 8) {
+                for ($x = (int) ($w * 0.5); $x < $w; $x += 8) {
+                    [$r, $g, $b] = $this->rgb($img, $x, $y);
+                    $found += ($r > 110 && $r < 170 && $g < 60 && $b > 120 && $b < 180) ? 1 : 0;
+                }
+            }
+            $this->assertGreaterThan(200, $found, "{$name}: the cover is drawn big");
+        }
+
+        try {
+            AdBuilder::make()->size(1200, 300)->images($this->packshot())->template('block-physics')->headline('Notes')->render();
+            $this->fail('a wide size was accepted');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('827x1063', $e->getMessage());
+        }
+    }
+
     public function test_block_and_banner_templates_refuse_each_others_sizes(): void
     {
         foreach ([['block-physics', 1200, 300], ['mathematics', 300, 250]] as [$name, $w, $h]) {

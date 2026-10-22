@@ -92,10 +92,13 @@ and the background and button follow the cover colour. The old plain-background 
 ```php
 $template = TemplateLibrary::blockFor($subjectName, $product->title);   // e.g. 'block-physics'; exams and kids' books by title
 
-Laragdads::ad()->size(300, 250)->images($cover)->template($template)->headline($product->title)->features([])->saveTo('ads/block.png');
+Laragdads::ad()->size(TemplateLibrary::BLOCK_WIDTH, TemplateLibrary::BLOCK_HEIGHT)->images($cover)->template($template)
+    ->headline($product->title)->features([])->saveTo('ads/block.png');
 ```
 
-Block templates only render at 300x250 (or a scaled copy), banners only at their own wide sizes.
+The block size of the site is 827x1063 (`TemplateLibrary::BLOCK_WIDTH` / `BLOCK_HEIGHT`, portrait, like the existing block ads): the plate sits at the
+bottom, a band of its own colours above it carries the logo and the product title, the features are a tall chip list on the left and the cover is big on the right.
+The plates' own 300x250 also works. Block templates refuse the wide banner sizes, banners refuse the block sizes.
 
 ### Which template for which subject
 
