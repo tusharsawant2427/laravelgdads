@@ -36,6 +36,48 @@ final class TemplateLibrary
         'environment' => ['evs-gk'], 'reasoning' => ['evs-gk'], 'kids' => ['kids-activity'],
     ];
 
+    /**
+     * The feature labels (icon + two words) each template shows until ->features() says otherwise; the artwork's own row is wiped.
+     * Hindi and Marathi use English labels: the display font has no Devanagari.
+     */
+    private const FEATURES = [
+        'mathematics' => ['Concept Clarity', 'Step-by-Step Solutions', 'Practice Questions'],
+        'science' => ['Clear Concepts', 'Illustrations', 'Practice Questions'],
+        'english' => ['Reading Skills', 'Grammar Practice', 'Exam Preparation'],
+        'hindi' => ['Easy Explanations', 'Practice Questions', 'Exam Focused'],
+        'marathi' => ['Easy Explanations', 'Practice Questions', 'Exam Focused'],
+        'social-science' => ['Easy Explanations', 'Maps & Diagrams', 'Exam Focused'],
+        'physics' => ['Concept Clarity', 'Numerical Practice', 'Real-Life Applications'],
+        'chemistry' => ['Clear Concepts', 'Solved Examples', 'Practice Questions'],
+        'biology' => ['Detailed Explanations', 'Illustrations', 'Practice Questions'],
+        'evs-gk' => ['Real-World Examples', 'Engaging Content', 'Exam Ready'],
+        'pre-primary' => ['Bright Illustrations', 'Fun Activities', 'Early Learning', 'Builds Foundation'],
+        'kids-activity' => ['Colourful Activities', 'Skill Development', 'Creativity Boost', 'Engaging Content'],
+        'primary' => ['Easy Explanations', 'Illustrations', 'Practice Questions', 'Concept Clarity'],
+        'foundation' => ['Concept Building', 'Step-by-Step Learning', 'Engaging Examples', 'Practice Worksheets'],
+        'multi-subject' => ['Complete Coverage', 'Simple Explanations', 'Practice Questions', 'Exam Ready'],
+        'early-learning' => ['Observation', 'Logical Thinking', 'Problem Solving', 'Activity Based'],
+        'kindergarten' => ['Alphabet & Numbers', 'Fun Activities', 'Colourful Illustrations', 'Early Concepts'],
+        'handwriting' => ['Guided Practice', 'Step-by-Step Strokes', 'Improve Writing Skills', 'Age Appropriate'],
+        'gk-kids' => ['Interesting Facts', 'Visual Learning', 'Current Affairs', 'Builds Awareness'],
+        'general' => ['Easy Explanations', 'Solved Examples', 'Practice Questions'],
+        'general-orange' => ['Concept Clarity', 'Step-by-Step Solutions', 'Exam-Oriented Practice'],
+        'general-purple' => ['Clear Concepts', 'Exam Focus', 'Score Higher'],
+        'general-green' => ['Visual Learning', 'Diagrams & Illustrations', 'Practice Questions'],
+        'general-navy' => ['Build Concepts', 'Real-Life Applications', 'Exam Ready'],
+        'general-pink' => ['Easy Learning', 'Memory Friendly', 'Better Results'],
+        'general-yellow' => ['Simplified Learning', 'Key Topics', 'Practice & Revision'],
+        'general-teal' => ['Modern Approach', 'Practical Learning', 'Skill Development'],
+        'general-cream' => ['Detailed Content', 'Exam-Oriented', 'Trusted by Students'],
+        'general-lavender' => ['Engaging Content', 'Activity-Based Learning', 'For Bright Futures'],
+        'neet' => ['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+        'mht-cet' => ['Simplified Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+        'cuet' => ['Subject-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+        'entrance-exams' => ['Comprehensive Study Material', 'Practice Questions', "Previous Years' Papers"],
+        'category' => ['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+        'category-orange' => ['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+    ];
+
     /** @var array<string, array<string, mixed>>|null */
     private static ?array $manifest = null;
 
@@ -62,6 +104,12 @@ final class TemplateLibrary
         return self::manifest()[$name] ?? throw new InvalidArgumentException(
             "Unknown template [{$name}]. Available: " . implode(', ', self::names()) . '.'
         );
+    }
+
+    /** The feature labels a template shows by default (see ->features() to change them); the artwork's own icons are removed. @return string[] */
+    public static function defaultFeatures(string $name): array
+    {
+        return self::FEATURES[$name] ?? [];
     }
 
     /** Headline and tagline ink colours of a template, as [r, g, b]. */

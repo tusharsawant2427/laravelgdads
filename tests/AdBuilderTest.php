@@ -823,6 +823,62 @@ final class AdBuilderTest extends TestCase
         $this->assertFalse(TemplateLibrary::spec('mathematics')['logoDark']);
     }
 
+    public function test_the_feature_row_shows_template_defaults_custom_labels_with_icons_or_nothing(): void
+    {
+        $name = 'physics';
+        [$w, $h] = TemplateLibrary::dimensions($name, 800);
+        $map = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
+        [$rx, $ry, $rw, $rh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['featureRow'], $map);
+        $render = function (?array $features) use ($w, $h, $name) {
+            $ad = AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->font($this->font)->matchCoverColour(false);
+            if ($features !== null) {
+                $ad->features($features);
+            }
+
+            return $this->decode($ad->toPng());
+        };
+        $inked = function (GdImage $img) use ($rx, $ry, $rw, $rh): int {
+            $n = 0;
+            for ($y = $ry; $y < $ry + $rh; $y += 2) {
+                for ($x = $rx; $x < $rx + $rw; $x += 2) {
+                    [$r, $g, $b] = $this->rgb($img, $x, $y);
+                    $n += ($r > 200 && $g < 120 && $b > 100) ? 1 : 0;   // the pink chip
+                }
+            }
+
+            return $n;
+        };
+
+        $this->assertSame(['Concept Clarity', 'Numerical Practice', 'Real-Life Applications'], TemplateLibrary::defaultFeatures($name));
+        $default = $render(null);
+        $this->assertGreaterThan(20, $inked($default), 'the default chips are drawn in the row the artwork left empty');
+        $this->assertSame($this->rgb($default, 5, 5), $this->rgb($render(['One', 'Two']), 5, 5));
+        $this->assertNotSame($default, $render(['check' => 'Solved Examples', ['target', 'Practice Papers']]) ?? null);
+        $this->assertSame(0, $inked($render([])), '->features([]) leaves the row empty');
+        $this->assertSame(0, $inked($render(['', '  '])), 'blank labels are ignored');
+        $this->assertGreaterThan(20, $inked($render(['A', 'B', 'C', 'D', 'E'])), 'at most four chips');
+
+        // Icons: a name from Support\Icons, else chosen from the words, else by position.
+        $builder = AdBuilder::make()->features(['check' => 'Solved Examples', ['bulb', 'Clear Concepts'], 'Practice Questions']);
+        $spec = (new \ReflectionProperty($builder, 'spec'))->getValue($builder);
+        $this->assertSame(['Solved Examples', 'Clear Concepts', 'Practice Questions'], $spec->features);
+        $this->assertSame(['check', 'bulb', ''], $spec->featureIcons);
+        $this->assertTrue($spec->featuresSet);
+        $this->assertFalse((new AdSpec())->featuresSet);
+    }
+
+    public function test_every_template_has_a_cleared_feature_row_and_default_labels(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            $spec = TemplateLibrary::spec($name);
+            $this->assertNotEmpty($spec['featureRow'], "{$name}: feature row");
+            [$x0, $y0, $x1, $y1] = $spec['featureRow'];
+            $this->assertTrue($x1 - $x0 > 0.3 && $y1 - $y0 > 0.08, "{$name}: a usable row");
+            $this->assertNotEmpty(TemplateLibrary::defaultFeatures($name), "{$name}: default labels");
+            $this->assertLessThanOrEqual(4, count(TemplateLibrary::defaultFeatures($name)));
+        }
+    }
+
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
     {
         $img = $this->banner('chemistry', 'Chemistry Notes', null, false);

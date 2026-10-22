@@ -54,6 +54,12 @@ final class AdSpec
     /** @var string[] short selling points, rendered as a tick list when there is room */
     public array $features = [];
 
+    /** @var string[] optional icon per feature (Support\Icons names), same order as $features */
+    public array $featureIcons = [];
+
+    /** Whether ->features() was called: templates show their own default labels until then, and none after ->features([]). */
+    public bool $featuresSet = false;
+
     public string $fontPath = '';
     public ?string $bodyFontPath = null;
 

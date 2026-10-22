@@ -106,17 +106,15 @@ TOPIC_SCALE = 1.0
 ENTRANCE_ROWS = [(0, 256), (260, 501), (502, 724)]
 ENTRANCE_COLS = [(0, 1085), (1089, 2172)]
 ENTRANCE = {
-    'neet':           dict(cell=(0, 0), logo=(98, 7, 290, 48, 105, 12, 200), book=(703, 3, 880, 252), label=(24, 34, 68, 170), fixed=True),
-    'mht-cet':        dict(cell=(0, 1), logo=(96, 5, 290, 48, 103, 10, 200), book=(693, 12, 868, 250), label=(40, 45, 68, 155), fixed=True),
-    'cuet':           dict(cell=(1, 0), logo=(98, 5, 290, 48, 105, 10, 200), book=(702, 2, 880, 232), label=(36, 46, 70, 160), fixed=True,
+    'neet':           dict(cell=(0, 0), logo=(98, 7, 290, 48, 105, 12, 200), book=(703, 3, 880, 252), label=(24, 34, 68, 170), fixed=True, row=(98, 160, 598, 203)),
+    'mht-cet':        dict(cell=(0, 1), logo=(96, 5, 290, 48, 103, 10, 200), book=(693, 12, 868, 250), label=(40, 45, 68, 155), fixed=True, row=(96, 160, 504, 202)),
+    'cuet':           dict(cell=(1, 0), logo=(98, 5, 290, 48, 105, 10, 200), book=(702, 2, 880, 232), label=(36, 46, 70, 160), fixed=True, row=(100, 154, 580, 194),
                       wipes=[(344, 127, 355, 149)]),   # a stray "]" after "Universities" in the artwork's tagline,
-    'entrance-exams': dict(cell=(1, 1), logo=(92, 5, 290, 44, 100, 10, 200), book=None, label=None, fixed=True),
+    'entrance-exams': dict(cell=(1, 1), logo=(92, 5, 290, 44, 100, 10, 200), book=None, label=None, fixed=True, row=(98, 157, 572, 194)),
     'category':        dict(cell=(2, 0), logo=(100, 6, 300, 46, 110, 12, 200), book=(712, 3, 892, 205), label=(50, 40, 65, 142),
-                            zone=(106, 44, 462, 84), tagline=(106, 110, 400, 130),
-                            features=[(150, 142, 230, 168), (275, 142, 355, 168), (400, 142, 492, 168), (538, 142, 640, 168)]),
+                            zone=(106, 44, 462, 84), tagline=(106, 110, 400, 130), row=(104, 138, 648, 172)),
     'category-orange': dict(cell=(2, 1), logo=(98, 6, 290, 46, 108, 12, 200), book=(698, 3, 882, 205), label=(50, 60, 67, 142),
-                            zone=(104, 44, 450, 84), tagline=(104, 110, 395, 130),
-                            features=[(147, 142, 226, 168), (267, 142, 346, 168), (390, 142, 472, 168), (509, 142, 600, 168)]),
+                            zone=(104, 44, 450, 84), tagline=(104, 110, 395, 130), row=(102, 138, 610, 172)),
 }
 
 
@@ -336,16 +334,19 @@ def finish(im, key, zone, book, tab, label=None, scale=SCALE, size=None, smooth_
     if extra.get('tagline'):
         fill_patch(im, *extra['tagline'], halo=(3, 6, 2), smooth_top=True, smooth_bottom=True)
         entry_extra['taglineZone'] = frac(extra['tagline'], w, h)
-    if extra.get('features'):
-        for r in extra['features']:
-            fill_vertical(im, *r)
-        entry_extra['featureZones'] = [frac(r, w, h) for r in extra['features']]
+    button = find_button(im)
+    row = extra.get('row')
+    if row == 'auto':
+        # The icon + label row sits between the headline zone and the button, left of the book: wipe it, the layout draws its own.
+        row = (zone[0] - 4, zone[3] + 3, min(book[0] - int(0.05 * w), int(extra.get('rowCap', 0.58) * w)), button[1] - 3)
+    if row:
+        fill_vertical(im, *row)
+        entry_extra['featureRow'] = frac(row, w, h)
     bx = None
     if book:
         if label:
             fill_patch(im, book[0] + label[0], book[1] + label[2], book[2] - label[1], book[1] + label[3], halo=(3, 3, 3))
         bx = frac((book[0] - BOOK_PAD[0], book[1] - BOOK_PAD[1], book[2] + BOOK_PAD[0], book[3] + BOOK_PAD[1]), w, h)
-    button = find_button(im)
     hue, sat = background_colour(im)
     target = size or (round(w * scale), round(h * scale))
     im = im.resize(target, Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=2))
@@ -378,7 +379,7 @@ def main(subjects_path, topics_path, variants_path, entrance_path):
         zx = c['zone'][0]
         wide = c['cell'][2] - c['cell'][0] > 550   # biology and EVS cells are wider and their logo a little smaller
         lw = 145 if wide else 150
-        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']), label=label,
+        manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), sh(c['tab']), label=label, extra={'row': 'auto'},
                                logo=(sh((zx - 6, 36, zx + 124, c['zone'][1] - 5)), sh((zx, 42, 0, 0))[:2] + (lw,)))
 
     sheet = Image.open(topics_path).convert('RGB')
@@ -390,14 +391,14 @@ def main(subjects_path, topics_path, variants_path, entrance_path):
         tab = sh((c['tab'][0], 0, c['tab'][2] + 14, 33))   # the label's shadow runs past the measured edge
         zx = c['zone'][0]
         manifest[key] = finish(im, key, sh(c['zone']), sh(c['book']), tab,
-                               label=None if c.get('label') is False else TOPIC_LABEL, scale=TOPIC_SCALE, smooth_top=True,
+                               label=None if c.get('label') is False else TOPIC_LABEL, scale=TOPIC_SCALE, smooth_top=True, extra={'row': 'auto', 'rowCap': 0.63},
                                logo=(sh((zx - 10, 38, zx + 200, 76)), sh((zx, 42, 0, 0))[:2] + (230,)))
 
     sheet = Image.open(variants_path).convert('RGB')
     for key, box in VARIANT_CELLS.items():
         im, sh = cut(sheet, box)
         manifest[key] = finish(im, key, sh(VARIANT_ZONE), sh(VARIANTS[key]), sh((0, 0, VARIANT_CIRCLE[2], VARIANT_CIRCLE[3] + 2)),
-                               label=VARIANT_LABEL, size=VARIANT_SIZE, smooth_top=True, smooth_bottom=True,
+                               label=VARIANT_LABEL, size=VARIANT_SIZE, smooth_top=True, smooth_bottom=True, extra={'row': 'auto', 'rowCap': 0.6},
                                logo=(sh((108, 2, 330, 51)), sh((118, 8, 0, 0))[:2] + (250,)))
 
     sheet = Image.open(entrance_path).convert('RGB')
@@ -405,9 +406,9 @@ def main(subjects_path, topics_path, variants_path, entrance_path):
         r, col = c['cell']
         im, sh = cut(sheet, (ENTRANCE_COLS[col][0], ENTRANCE_ROWS[r][0], ENTRANCE_COLS[col][1], ENTRANCE_ROWS[r][1]))
         ex0, ey0, ex1, ey1, lx, ly, lw = c['logo']
-        extra = {'wipes': [sh(r) for r in c.get('wipes', [])]}
+        extra = {'wipes': [sh(r) for r in c.get('wipes', [])], 'row': sh(c['row'])}
         if c.get('tagline'):
-            extra.update({'tagline': sh(c['tagline']), 'features': [sh(f) for f in c['features']]})
+            extra['tagline'] = sh(c['tagline'])
         manifest[key] = finish(im, key, sh(c['zone']) if c.get('zone') else None, sh(c['book']) if c.get('book') else None, None,
                                label=c['label'], scale=1.0, logo=(sh((ex0, ey0, ex1, ey1)), sh((lx, ly, 0, 0))[:2] + (lw,)),
                                extra=extra, fixed=c.get('fixed', False))

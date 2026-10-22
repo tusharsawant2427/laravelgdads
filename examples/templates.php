@@ -51,7 +51,7 @@ foreach (TemplateLibrary::names() as $i => $name) {
     [$w, $h] = TemplateLibrary::dimensions($name, 1200);
     [$title, $tagline] = $titles[$name];
     AdBuilder::make()->size($w, $h)->images($covers[$i % count($covers)])->template($name)
-        ->headline($title)->subheadline($tagline)->features(['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', 'Previous Years Papers'])
+        ->headline($title)->subheadline($tagline)
         ->font($argv[2] ?? __DIR__ . '/../resources/fonts/DejaVuSans-Bold.ttf')
         ->save("$out/$name.png");
     echo "$name {$w}x{$h}\n";

@@ -7,6 +7,7 @@ use Packitifotech\Laragdads\Ads\AdSpec;
 use Packitifotech\Laragdads\Ads\Support\BookMockup;
 use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Support\Color;
+use Packitifotech\Laragdads\Ads\Support\Icons;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Typography;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
@@ -41,20 +42,18 @@ final class TemplateLayout extends AbstractLayout
         if ($template['book'] !== null) {
             $this->product($canvas, $spec, TemplateLibrary::rect($template['book'], $map), $template['ink']);
         }
-        if ($template['zone'] === null) {
-            return;   // the artwork has its own headline (NEET, MHT-CET, CUET, all entrance exams)
+        if ($template['zone'] !== null) {   // NEET, MHT-CET, CUET and "entrance-exams" keep their own headline
+            if (isset($template['taglineZone'])) {
+                $this->category($canvas, $spec, $headingFont, $bodyFont, $map, $template);
+            } else {
+                $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);
+            }
         }
-        if (isset($template['taglineZone'])) {
-            $this->category($canvas, $spec, $headingFont, $bodyFont, $map, $template);
-
-            return;
-        }
-        $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);
+        $this->features($canvas, $spec, $bodyFont, TemplateLibrary::rect($template['featureRow'], $map), $template, $name);
     }
 
     /**
-     * The category layout: the subject name in capitals on one line (the artwork says "PREPARATION BOOKS" under it), a tagline, and
-     * up to four feature labels beside their icons. Unused feature slots stay empty.
+     * The category layout: the subject name in capitals on one line (the artwork says "PREPARATION BOOKS" under it) and a tagline.
      */
     private function category(Canvas $canvas, AdSpec $spec, Typography $headingFont, Typography $bodyFont, array $map, array $template): void
     {
@@ -71,16 +70,69 @@ final class TemplateLayout extends AbstractLayout
             $fit = $bodyFont->fit($tagline, $w, $h, (int) round($h * 0.8), 7, 1.1, 1);
             $canvas->lines($fit['lines'], $bodyFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['tagline'], 'left', $fit['lineHeight']);
         }
+    }
 
-        foreach ($template['featureZones'] as $i => $zone) {
-            $label = $this->printable((string) ($spec->features[$i] ?? ''), $bodyFont);
-            if ($label === '') {
-                continue;
-            }
-            [$x, $y, $w, $h] = TemplateLibrary::rect($zone, $map);
-            $fit = $bodyFont->fit($label, $w, $h, (int) round($h * 0.5), 6, 1.1, 2);
-            $canvas->lines($fit['lines'], $bodyFont, $fit['size'], $x, $y + intdiv($h - $fit['height'], 2), $w, $template['tagline'], 'left', $fit['lineHeight']);
+    /** Icon for a feature label, chosen by the words in it. */
+    private const ICON_WORDS = [
+        'check' => '/solved|solution|step|worked|answer/iu',
+        'target' => '/practice|question|exam|mcq|focus|ready|score|result/iu',
+        'bulb' => '/concept|clarity|theory|learning|explanation|simple|easy|clear|skill|logical|creativ|observation/iu',
+        'doc' => '/paper|worksheet|content|material|syllabus|notes|coverage|chapter/iu',
+        'book' => '/read|grammar|writing|alphabet|book|story/iu',
+        'atom' => '/numerical|application|real|science|fact|awareness|current/iu',
+        'pencil' => '/activit|colou?r|draw|craft|stroke|fun|guided/iu',
+        'star' => '/trusted|bright|future|better|modern|confidence/iu',
+    ];
+
+    private const CHIP_COLOURS = [[236, 72, 153], [245, 158, 11], [59, 130, 246], [139, 92, 246]];
+
+    /**
+     * The feature row: up to four icon chips (a coloured circle with a white pictogram) and a one or two line label each, left aligned
+     * in the row the artwork leaves empty. ->features() sets them, the template's defaults show otherwise. Labels are white on dark artwork.
+     */
+    private function features(Canvas $canvas, AdSpec $spec, Typography $font, array $row, array $template, string $name): void
+    {
+        $labels = $spec->featuresSet ? $spec->features : TemplateLibrary::defaultFeatures($name);
+        $icons = $spec->featuresSet ? $spec->featureIcons : [];
+        [$x, $y, $w, $h] = $row;
+        $labels = array_slice(array_values($labels), 0, 4);
+        $n = count($labels);
+        if ($n === 0) {
+            return;
         }
+        $d = (int) round(min($h * 0.7, $w / (max($n, 3) * 3.2)));   // as many chips as labels: they shrink to fit the row
+        if ($d < 6) {
+            return;
+        }
+        $slot = (int) floor($w / max($n === 4 ? 4 : 3, $n));
+        $ink = $template['logoDark'] ? [255, 255, 255] : $template['tagline'];
+        foreach ($labels as $i => $label) {
+            $label = $this->printable($label, $font);
+            $icon = $icons[$i] ?? '';
+            if ($icon === '' || !in_array($icon, Icons::names(), true)) {
+                $icon = $this->iconFor($label, $i);
+            }
+            $cx = $x + $i * $slot + intdiv($d, 2);
+            $cy = $y + intdiv($h, 2);
+            $canvas->circle($cx, $cy, $d, self::CHIP_COLOURS[$i % 4]);
+            Icons::draw($canvas, $icon, $cx, $cy, (int) round($d * 0.58), [255, 255, 255], 0.07);
+
+            $lx = $x + $i * $slot + $d + (int) round($d * 0.28);
+            $lw = $slot - $d - (int) round($d * 0.5);
+            $fit = $font->fit($label, $lw, (int) round($d * 1.05), (int) round($d * 0.5), 6, 1.1, 2);
+            $canvas->lines($fit['lines'], $font, $fit['size'], $lx, $cy - intdiv($fit['height'], 2), $lw, $ink, 'left', $fit['lineHeight']);
+        }
+    }
+
+    private function iconFor(string $label, int $position): string
+    {
+        foreach (self::ICON_WORDS as $icon => $pattern) {
+            if (preg_match($pattern, $label)) {
+                return $icon;
+            }
+        }
+
+        return ['book', 'check', 'target', 'doc'][$position % 4];
     }
 
     /** The button colour: the cover's own hue, saturated and dark enough for the button's white lettering. */

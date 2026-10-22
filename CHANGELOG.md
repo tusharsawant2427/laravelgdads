@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0
+
+### Added
+- Manageable feature row: the icon + label row baked into every template is removed and drawn from `->features([...])` (up to four
+  icon chips, labels shrink to fit, `['check' => 'Solved Examples']` or `['target', 'Practice Papers']` to pick an icon, `->features([])`
+  for none). Without a call each template shows its own default labels (`TemplateLibrary::defaultFeatures()`); Hindi and Marathi use
+  English ones because the display font has no Devanagari.
+
 ## 2.4.0
 
 ### Added

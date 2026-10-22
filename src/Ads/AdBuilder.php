@@ -124,11 +124,27 @@ final class AdBuilder
     /**
      * Short selling points shown as a tick list (up to 5) when the format has room.
      *
-     * @param string[] $features
+     * Templates draw each as an icon chip (4 at most, as many as fit the row) and show their own default labels until this is called;
+     * ->features([]) shows none. Give an icon with ['check', 'Solved Examples'] or ['check' => 'Solved Examples'] (see Support\Icons::names()).
+     *
+     * @param array<int|string, string|array{0:string,1:string}> $features
      */
     public function features(array $features): self
     {
-        $this->spec->features = array_values(array_filter(array_map('trim', $features), 'strlen'));
+        $labels = [];
+        $icons = [];
+        foreach ($features as $key => $feature) {
+            // 'Solved Examples', or ['check', 'Solved Examples'], or 'check' => 'Solved Examples'
+            [$icon, $label] = is_array($feature) ? [$feature[0] ?? '', $feature[1] ?? ''] : (is_string($key) ? [$key, $feature] : ['', $feature]);
+            $label = trim((string) $label);
+            if ($label !== '') {
+                $labels[] = $label;
+                $icons[] = (string) $icon;
+            }
+        }
+        $this->spec->features = $labels;
+        $this->spec->featureIcons = $icons;
+        $this->spec->featuresSet = true;
 
         return $this;
     }
