@@ -41,7 +41,7 @@ final class AdSpec
 
     public ?string $scriptFontPath = null;
 
-    /** Name of an illustrated background template (Templates\\TemplateLibrary). */
+    /** Name of a subject banner template (Templates\\TemplateLibrary). */
     public ?string $template = null;
 
     /** Subject label that picked the template, e.g. "Physics + Chemistry + Maths" (informational). */

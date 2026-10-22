@@ -1,37 +1,40 @@
 <?php
 
 /**
- * Illustrated banner templates: 20 light, hand-drawn style backgrounds with the product, headline and button in the middle.
+ * The subject banner templates: one banner per template, with a product cover and title.
  *
- *   php examples/templates.php [output-dir]
- *
- * Writes every template as a 1200x200 strip with the Physics cover, plus the bare backgrounds.
+ *   php examples/templates.php [output-dir] [font.ttf]
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+if (is_file(__DIR__ . '/../vendor/autoload.php')) { require __DIR__ . '/../vendor/autoload.php'; }
 
 use Packitifotech\Laragdads\Ads\AdBuilder;
-use Packitifotech\Laragdads\Ads\AdSize;
-use Packitifotech\Laragdads\Ads\Support\Canvas;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 
 $out = $argv[1] ?? __DIR__ . '/output';
-@mkdir("$out/backgrounds", 0775, true);
-$cover = __DIR__ . '/assets/lHZj2P6ls9N8WVqGXbHKUbutNz6EVdQLXOPtVKTp.webp';
+@mkdir($out, 0775, true);
+$covers = glob(__DIR__ . '/assets/*.webp');
+
+$titles = [
+    'mathematics' => ['Std. X Mathematics Part 1 Notes', 'Algebra and Geometry for the Maharashtra Board'],
+    'science' => ['Std. X Science and Technology Part 1', null],
+    'english' => ['Std. IX English Kumarbharati Workbook with Grammar and Writing Practice', null],
+    'hindi' => ['Std. VIII Hindi Sulabhbharati', null],
+    'marathi' => ['Std. X Marathi Kumarbharati', null],
+    'social-science' => ['Std. X History and Political Science Part 1', null],
+    'physics' => ['Std. XII Physics Part 1', 'Chapter-wise notes and numericals'],
+    'chemistry' => ['MHT-CET Triumph Chemistry: Chapter-wise Notes and 6400+ MCQs', null],
+    'biology' => ['Std. XII Biology Part 1', null],
+    'evs-gk' => ['EVS and General Knowledge Activity Book for Kids', null],
+    'general' => ['Std. XI Computer Science', 'As per the latest syllabus'],
+];
 
 foreach (TemplateLibrary::names() as $i => $name) {
-    $n = sprintf('%02d-%s', $i + 1, $name);
-
-    // The bare background at 2000x256 (use it as a plain image behind your own layout).
-    $c = Canvas::create(2000, 256, [255, 255, 255]);
-    TemplateLibrary::paint($name, $c);
-    imagepng($c->image(), "$out/backgrounds/$n.png");
-
-    // A complete ad.
-    AdBuilder::make()->size(AdSize::STRIP)->images($cover)->template($name)
-        ->headline('MHT-CET Physics: 28 Years Previous Solved Papers')
-        ->subheadline('Chapter-wise papers from 1999 to 2026')
-        ->cta('Buy now')
-        ->save("$out/ad-$n.png");
-    echo "$n\n";
+    [$w, $h] = TemplateLibrary::dimensions($name, 1200);
+    [$title, $tagline] = $titles[$name];
+    AdBuilder::make()->size($w, $h)->images($covers[$i % count($covers)])->template($name)
+        ->headline($title)->subheadline($tagline)
+        ->font($argv[2] ?? __DIR__ . '/../resources/fonts/DejaVuSans-Bold.ttf')
+        ->save("$out/$name.png");
+    echo "$name {$w}x{$h}\n";
 }

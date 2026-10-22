@@ -15,7 +15,6 @@ use Packitifotech\Laragdads\Ads\Support\Color;
 use Packitifotech\Laragdads\Ads\Support\Cutout;
 use Packitifotech\Laragdads\Ads\Support\ImageLoader;
 use Packitifotech\Laragdads\Ads\Support\Icons;
-use Packitifotech\Laragdads\Ads\Layouts\TemplateLayout;
 use Packitifotech\Laragdads\Ads\Templates\Subjects;
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 use Packitifotech\Laragdads\Ads\Support\Typography;
@@ -539,148 +538,6 @@ final class AdBuilderTest extends TestCase
         $this->assertLessThan(15, Color::hueDistance($orange, [240, 138, 60]));
     }
 
-    public function test_every_template_paints_a_distinct_background_with_readable_ink(): void
-    {
-        $names = TemplateLibrary::names();
-        $this->assertCount(58, $names);
-
-        $seen = [];
-        foreach ($names as $name) {
-            $c = Canvas::create(1200, 200, [255, 255, 255]);
-            TemplateLibrary::paint($name, $c, null, 260);
-            $ink = TemplateLibrary::palette($name)['ink'];
-            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 200, 260);
-            $from = (int) ($x0 + 160);
-            foreach ([0.1, 0.5, 0.9] as $fx) {
-                foreach ([60, 100, 150] as $py) {
-                    $px = (int) ($from + ($x1 - $from) * $fx);
-                    $this->assertGreaterThanOrEqual(4.5, Color::contrast($ink, $this->rgb($c->image(), $px, $py)), "{$name} at {$px},{$py}: ink is readable in the text area");
-                }
-            }
-
-            ob_start();
-            imagepng($c->image());
-            $seen[md5((string) ob_get_clean())] = true;
-        }
-        $this->assertCount(58, $seen, 'every template looks different');
-    }
-
-    public function test_declared_zones_clear_the_artwork_and_leave_room_for_text(): void
-    {
-        foreach (TemplateLibrary::names() as $name) {
-            foreach ([[1200, 200], [2000, 256], [2800, 256]] as [$w, $h]) {
-                $spec = new AdSpec();
-                $spec->width = $w;
-                $spec->height = $h;
-                $spec->cta = 'Buy now';
-                $reserve = (new TemplateLayout($name))->reserveRight($spec, new Typography(dirname(__DIR__) . '/resources/fonts/DejaVuSans-Bold.ttf'));
-
-                $art = TemplateLibrary::artwork($name, $w, $h, $reserve);
-                [$x0, $x1] = TemplateLibrary::zone($name, $w, $h, $reserve);
-                $this->assertGreaterThanOrEqual($art['left'] * $h - 2, $x0, "{$name} {$w}x{$h}: zone starts after the left artwork");
-                $this->assertLessThanOrEqual(($w - $reserve) - $art['right'] * $h + 2, $x1, "{$name} {$w}x{$h}: zone ends before the right artwork");
-                $this->assertGreaterThanOrEqual(1.0 * $h, $x1 - $x0 - 0.84 * $h, "{$name} {$w}x{$h}: room for the text column");
-            }
-        }
-    }
-
-    public function test_zones_hold_on_a_1200x300_banner_without_a_button(): void
-    {
-        foreach (TemplateLibrary::names() as $name) {
-            $art = TemplateLibrary::artwork($name, 1200, 300, 0);
-            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 300, 0);
-            $this->assertGreaterThanOrEqual($art['left'] * 300 - 3, $x0, "{$name}: zone starts after the left artwork");
-            $this->assertLessThanOrEqual(1200 - $art['right'] * 300 + 3, $x1, "{$name}: zone ends before the right artwork");
-            $this->assertGreaterThanOrEqual(1.2 * 300, $x1 - $x0 - TemplateLayout::BOOK_WIDTH * 300 - TemplateLayout::BOOK_GAP * 300, "{$name}: room for the headline");
-        }
-    }
-
-    public function test_children_books_get_children_templates_and_general_has_no_subject_art(): void
-    {
-        $kids = TemplateLibrary::forGroup('kids');
-        $this->assertGreaterThanOrEqual(8, count($kids));
-        foreach (['Colouring Book', 'Activity Book', 'Blossom Colouring Book for 5+ Year Old Kids Part C1', 'Nursery Rhymes'] as $title) {
-            $this->assertSame(['kids'], Subjects::pool($title), $title);
-            $this->assertContains(TemplateLibrary::pickFor($title, 167), $kids, $title);
-        }
-        $this->assertSame(['physics'], Subjects::pool('MHT-CET Physics Notes'));
-        $this->assertNotContains('books-emc2', TemplateLibrary::forGroup('general'), 'the atom template is physics only');
-        $this->assertSame([], Subjects::unknown('Colouring Book'));
-        // a children's title wins over the subject filter; an unknown subject falls back to the title
-        $this->assertSame(['kids'], Subjects::pool('English', 'Blossom Colouring Book for 5+ Year Old Kids'));
-        $this->assertSame(['physics'], Subjects::pool('Some new subject', 'MHT-CET Physics Notes'));
-        $this->assertSame(['languages'], Subjects::pool('English', 'Grammar Practice Book'));
-        $this->assertContains(AdBuilder::make()->subject('English', 167, 'Colouring Book for Kids')->templateName(), $kids);
-    }
-
-    public function test_template_ads_render_in_strip_and_wide_sizes_with_zone_and_palette(): void
-    {
-        $cover = $this->packshot();
-        foreach (['sky-atom', 'doodle-grid', 'prism-rainbow', 'mint-chemistry', 'navy-success', 'sunny-rocket'] as $name) {
-            foreach ([[1200, 200], [2000, 256]] as [$sw, $sh]) {
-                $img = $this->decode(AdBuilder::make()->size($sw, $sh)->images($cover)->template($name)
-                    ->headline('MHT-CET Physics')->subheadline('Solved papers')->cta('Buy now')->badge('4100+')->toPng());
-                $this->assertSame([$sw, $sh], [imagesx($img), imagesy($img)], "{$name} {$sw}x{$sh}");
-            }
-            ['ink' => $ink, 'accent' => $accent, 'zone' => $zone] = TemplateLibrary::palette($name);
-            $this->assertCount(3, $ink);
-            $this->assertCount(3, $accent);
-            [$x0, $x1] = TemplateLibrary::zone($name, 1200, 200);
-            $this->assertGreaterThan($x0 + 300, $x1, 'the free zone is wide enough for content');
-        }
-    }
-
-    public function test_every_template_renders_as_a_336x453_portrait_with_a_readable_headline(): void
-    {
-        $cover = $this->packshot();
-        foreach (TemplateLibrary::names() as $name) {
-            $img = $this->decode(AdBuilder::make()->size(336, 453)->images($cover)->template($name)
-                ->headline('Physics')->subheadline('Solved papers')->cta('Buy now')->toPng());
-            $this->assertSame([336, 453], [imagesx($img), imagesy($img)], $name);
-
-            // the button sits at the same place on every template: centred, just above the bottom band
-            $accent = TemplateLibrary::palette($name)['accent'];
-            $px = $this->rgb($img, 126, 453 - TemplateLibrary::band(336) - 8 - 17);
-            $this->assertLessThanOrEqual(6, max(abs($px[0] - $accent[0]), abs($px[1] - $accent[1]), abs($px[2] - $accent[2])), "{$name}: button colour at its fixed spot");
-        }
-    }
-
-    public function test_portrait_book_is_big_and_the_same_box_on_every_template(): void
-    {
-        $this->assertGreaterThanOrEqual(0.6, TemplateLayout::BOOK_WIDTH);
-        $this->assertSame(0.94, TemplateLayout::BOOK_HEIGHT);
-        $this->assertGreaterThan(40, TemplateLibrary::band(336));
-        $this->assertTrue(TemplateLibrary::isPortrait(336, 453));
-        $this->assertFalse(TemplateLibrary::isPortrait(1200, 200));
-    }
-
-    public function test_templates_reject_unknown_names_and_narrow_canvases(): void
-    {
-        try {
-            AdBuilder::make()->template('nope');
-            $this->fail('unknown template accepted');
-        } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString('Unknown template', $e->getMessage());
-        }
-
-        $this->expectException(InvalidArgumentException::class);
-        AdBuilder::make()->size(AdSize::SQUARE)->headline('Hi')->template('sky-atom')->render();
-    }
-
-    public function test_template_text_uses_the_template_ink_and_button_uses_its_accent(): void
-    {
-        $img = $this->decode(AdBuilder::make()->size(AdSize::STRIP)->template('aqua-hex')->headline('Hello')->cta('Buy now')->toPng());
-        $accent = TemplateLibrary::palette('aqua-hex')['accent'];
-
-        $found = false;
-        for ($x = 900; $x < 1190 && !$found; $x += 3) {
-            for ($y = 70; $y < 130; $y += 3) {
-                $found = $found || Color::toHex($this->rgb($img, $x, $y)) === Color::toHex($accent);
-            }
-        }
-        $this->assertTrue($found, 'the template accent colours the button');
-    }
-
     public function test_subject_labels_are_normalised_typos_and_short_forms_included(): void
     {
         $this->assertSame(['maths-advanced'], Subjects::groups('Alegbra'));
@@ -721,108 +578,207 @@ final class AdBuilderTest extends TestCase
         }
     }
 
-    public function test_every_group_has_at_least_two_templates_and_every_template_is_tagged(): void
+    // ------------------------------------------------------------ subject templates
+
+    private function banner(string $template, ?string $headline = 'Notes', ?string $tagline = null, bool $withCover = true): GdImage
     {
-        $byGroup = TemplateLibrary::byGroup();
-        $this->assertSame(Subjects::GROUPS, array_keys($byGroup));
-        foreach ($byGroup as $group => $templates) {
-            $this->assertGreaterThanOrEqual(2, count($templates), $group);
+        [$w, $h] = TemplateLibrary::dimensions($template, 800);
+        $ad = AdBuilder::make()->size($w, $h)->template($template)->font($this->font);
+        if ($withCover) {
+            $ad->images($this->packshot());
         }
-        $tagged = array_unique(array_merge(...array_values($byGroup)));
-        $this->assertEqualsCanonicalizing(TemplateLibrary::names(), $tagged, 'no template without a theme group');
+        if ($headline !== null) {
+            $ad->headline($headline);
+        }
+        if ($tagline !== null) {
+            $ad->subheadline($tagline);
+        }
+
+        return $this->decode($ad->toPng());
     }
 
-    public function test_subject_picks_templates_that_suit_it_and_variants_rotate(): void
+    public function test_there_is_one_template_per_subject_plus_a_generic_one_and_each_has_its_artwork(): void
     {
-        $this->assertContains(TemplateLibrary::pickFor('Physics'), TemplateLibrary::forGroup('physics'));
-        $this->assertContains(TemplateLibrary::pickFor('Calculus', 1), TemplateLibrary::forGroup('maths-advanced'));
-        $this->assertSame(TemplateLibrary::pickFor('Chemistry', 2), TemplateLibrary::pickFor('Chemistry', 2));
-        $this->assertCount(3, array_unique(array_map(fn ($v) => TemplateLibrary::pickFor('Chemistry', $v), [0, 1, 2])));
-        $this->assertEqualsCanonicalizing(
-            array_unique(array_merge(TemplateLibrary::forGroup('history'), TemplateLibrary::forGroup('geography'), TemplateLibrary::forGroup('civics'))),
-            TemplateLibrary::forSubject('Social Science'),
-            'a related-subject label draws on all of their themes'
+        $this->assertSame(
+            ['mathematics', 'science', 'english', 'hindi', 'marathi', 'social-science', 'physics', 'chemistry', 'biology', 'evs-gk', 'general'],
+            TemplateLibrary::names()
         );
-        $this->assertEqualsCanonicalizing(TemplateLibrary::forGroup('general'), TemplateLibrary::forSubject('English + Hindi + Marathi + History + Geography + Maths + Science'));
-
-        $this->expectException(InvalidArgumentException::class);
-        TemplateLibrary::forGroup('nope');
-    }
-
-    public function test_default_pick_is_a_template_made_for_the_subject_not_a_borrowed_one(): void
-    {
-        $expect = ['Physics' => 'physics', 'Alegbra' => 'maths-advanced', 'Water Security' => 'environment', 'Computer Science - II' => 'computer',
-            'Accounts' => 'commerce', 'Calculus' => 'maths-advanced', 'Value Education' => 'psychology', 'Drawing and Colouring' => 'art',
-            'General Knowlegde' => 'reasoning', 'Defence Studies' => 'sports', 'Marathi' => 'languages', 'Sociology' => 'civics'];
-        foreach ($expect as $label => $group) {
-            $first = TemplateLibrary::pickFor($label, 0);
-            $this->assertSame($group, $this->primaryGroup($first), "{$label} -> {$first}");
-        }
-    }
-
-    private function primaryGroup(string $template): string
-    {
-        $tags = (new \ReflectionClass(TemplateLibrary::class))->getReflectionConstant('TAGS')->getValue();
-
-        return $tags[$template][0];
-    }
-
-    public function test_builder_subject_chooses_the_template_and_renders(): void
-    {
-        $ad = fn (string $label, int $v = 0) => AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->subject($label, $v)
-            ->headline('Notes')->cta('Buy now');
-
-        $this->assertContains($ad('Calculus')->templateName(), TemplateLibrary::forGroup('maths-advanced'));
-        $this->assertNull(AdBuilder::make()->templateName());
-        $physics = $ad('Physics')->toPng();
-        $this->assertSame([1200, 200], [imagesx($this->decode($physics)), imagesy($this->decode($physics))]);
-        $this->assertNotSame($physics, $ad('Physics', 1)->toPng(), 'a different variant is a different template');
-        $this->assertSame($physics, $ad('Physics')->toPng());
-        $this->assertNotSame($physics, $ad('Accounts')->toPng());
-        $this->assertSame($ad('Physics')->template('prism-rainbow')->toPng(), AdBuilder::make()->size(AdSize::STRIP)->images($this->packshot())->template('prism-rainbow')->headline('Notes')->cta('Buy now')->toPng(), 'an explicit template overrides the subject');
-    }
-
-    public function test_subject_templates_render_at_both_strip_sizes(): void
-    {
         foreach (TemplateLibrary::names() as $name) {
-            foreach ([[1200, 200], [2000, 256], [2800, 256]] as [$w, $h]) {
-                $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->cta('Buy')->toPng());
-                $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], "{$name} {$w}x{$h}");
+            $spec = TemplateLibrary::spec($name);
+            $file = dirname(__DIR__) . '/resources/templates/' . $spec['file'];
+            $this->assertSame([$spec['width'], $spec['height']], array_slice(getimagesize($file), 0, 2), "{$name}: manifest size matches the file");
+            foreach (['zone', 'book'] as $rect) {
+                [$x0, $y0, $x1, $y1] = $spec[$rect];
+                $this->assertTrue($x0 >= 0 && $y0 >= 0 && $x1 <= 1 && $y1 <= 1 && $x0 < $x1 && $y0 < $y1, "{$name}: {$rect} is inside the plate");
             }
+            $this->assertLessThan($spec['book'][0], $spec['zone'][2], "{$name}: the copy zone ends before the book");
+            $this->assertCount(3, $spec['ink']);
+            $this->assertCount(3, $spec['tagline']);
         }
     }
 
-    public function test_the_button_is_in_the_same_place_on_every_template(): void
+    public function test_the_old_illustrated_templates_are_gone(): void
     {
-        $cover = $this->packshot();
-        $boxes = [];
-        foreach (TemplateLibrary::names() as $name) {
-            $theme = TemplateLibrary::palette($name);
-            $img = $this->decode(AdBuilder::make()->size(1200, 200)->images($cover)->template($name)->headline('Notes')->cta('Buy now')->toPng());
+        foreach (['sky-atom', 'lavender-books', 'prism-rainbow', 'navy-success', 'rainbow-meadow'] as $old) {
+            $this->assertFalse(TemplateLibrary::has($old), $old);
+        }
+        foreach (['byGroup', 'forGroup', 'zone', 'artwork', 'band', 'isPortrait'] as $method) {
+            $this->assertFalse(method_exists(TemplateLibrary::class, $method), "{$method}() was removed");
+        }
+    }
 
-            // Follow the accent-coloured pill leftwards from the right edge, on a row above the label text. (Artwork can use the
-            // same colour elsewhere, so only the contiguous run that ends at the button counts.)
-            $accent = Color::toHex($theme['accent']);
-            $maxX = -1;
-            for ($x = 1199; $x >= 700; $x--) {
-                if (Color::toHex($this->rgb($img, $x, 70)) === $accent) {
-                    $maxX = $x;
-                    break;
+    public function test_templates_render_at_their_own_proportions_and_the_product_replaces_the_placeholder_book(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            [$w, $h] = TemplateLibrary::dimensions($name, 800);
+            $this->assertEqualsWithDelta(TemplateLibrary::ratio($name), $w / $h, 0.01);
+
+            $with = $this->banner($name);
+            $without = $this->banner($name, 'Notes', null, false);
+            $this->assertSame([$w, $h], [imagesx($with), imagesy($with)], $name);
+
+            // The placeholder is covered: the middle of the book position shows the packshot's purple cover in one, not in the other.
+            [$x, $y, $bw, $bh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['book'], ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h]);
+            [$r, $g, $b] = $this->rgb($with, $x + intdiv($bw, 2), $y + (int) ($bh * 0.3));
+            $this->assertTrue($r > 100 && $g < 80 && $b > 100, "{$name}: the cover is drawn over the book (" . implode(',', [$r, $g, $b]) . ')');
+            $this->assertNotSame($this->rgb($with, $x + intdiv($bw, 2), $y + (int) ($bh * 0.3)), $this->rgb($without, $x + intdiv($bw, 2), $y + (int) ($bh * 0.3)));
+        }
+    }
+
+    public function test_the_title_is_drawn_inside_the_copy_zone_in_the_template_ink_and_nowhere_else(): void
+    {
+        foreach (TemplateLibrary::names() as $name) {
+            [$w, $h] = TemplateLibrary::dimensions($name, 800);
+            $titled = $this->banner($name, 'Std. X Mathematics Part 1');
+            $plain = $this->banner($name, null);
+            [$zx, $zy, $zw, $zh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['zone'], ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h]);
+            $ink = TemplateLibrary::palette($name)['ink'];
+
+            $changed = 0;
+            $inInk = 0;
+            for ($py = 0; $py < $h; $py += 2) {
+                for ($px = 0; $px < $w; $px += 2) {
+                    $a = $this->rgb($titled, $px, $py);
+                    if ($a === $this->rgb($plain, $px, $py)) {
+                        continue;
+                    }
+                    $changed++;
+                    $this->assertTrue($px >= $zx - 2 && $px <= $zx + $zw + 2 && $py >= $zy - 2 && $py <= $zy + $zh + 2, "{$name}: text at {$px},{$py} is outside the zone");
+                    if (array_sum(array_map('abs', array_map(fn ($u, $v) => $u - $v, $a, $ink))) < 24) {
+                        $inInk++;
+                    }
                 }
             }
-            $minX = $maxX;
-            while ($minX > 700 && Color::toHex($this->rgb($img, $minX - 1, 70)) === $accent) {
-                $minX--;
-            }
-            $this->assertGreaterThan(0, $maxX, "{$name}: the button is drawn");
-            $boxes[$name] = [$minX, $maxX];
+            $this->assertGreaterThan(40, $changed, "{$name}: the title is drawn");
+            $this->assertGreaterThan(5, $inInk, "{$name}: in the template's ink colour");
         }
+    }
 
-        $rights = array_unique(array_column($boxes, 1));
-        $lefts = array_unique(array_column($boxes, 0));
-        $this->assertCount(1, $rights, 'the button always ends at the same x: ' . json_encode($boxes));
-        $this->assertCount(1, $lefts, 'and starts at the same x');
-        $this->assertLessThanOrEqual(1200 - 18, reset($rights), 'flush to the right edge with a margin');
+    public function test_a_tagline_goes_below_the_title_in_the_tagline_colour(): void
+    {
+        $name = 'mathematics';
+        [$w, $h] = TemplateLibrary::dimensions($name, 800);
+        $map = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
+        [$zx, $zy, $zw, $zh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['zone'], $map);
+        $with = $this->banner($name, 'Mathematics Part 1', 'Chapter-wise notes and practice');
+        $without = $this->banner($name, 'Mathematics Part 1');
+
+        $lower = 0;
+        for ($py = $zy + (int) ($zh * 0.66); $py < $zy + $zh; $py++) {
+            for ($px = $zx; $px < $zx + $zw; $px++) {
+                $lower += $this->rgb($with, $px, $py) !== $this->rgb($without, $px, $py) ? 1 : 0;
+            }
+        }
+        $this->assertGreaterThan(100, $lower, 'the tagline sits in the lower part of the zone');
+    }
+
+    public function test_long_titles_shrink_to_fit_instead_of_leaving_the_zone(): void
+    {
+        $long = 'MHT-CET Triumph Physics: Chapter-wise Notes, 6400+ MCQs, Previous Years Questions and Model Question Papers for Engineering and Pharmacy';
+        $name = 'physics';
+        [$w, $h] = TemplateLibrary::dimensions($name, 800);
+        $map = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
+        [$zx, $zy, $zw, $zh] = TemplateLibrary::rect(TemplateLibrary::spec($name)['zone'], $map);
+        $a = $this->banner($name, $long);
+        $b = $this->banner($name, null);
+        for ($py = 0; $py < $h; $py += 2) {
+            for ($px = 0; $px < $w; $px += 2) {
+                if ($this->rgb($a, $px, $py) !== $this->rgb($b, $px, $py)) {
+                    $this->assertTrue($px >= $zx - 2 && $px <= $zx + $zw + 2 && $py >= $zy - 2 && $py <= $zy + $zh + 2, "text at {$px},{$py} is outside the zone");
+                }
+            }
+        }
+    }
+
+    public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
+    {
+        $img = $this->banner('chemistry', 'Chemistry Notes', null, false);
+        $this->assertSame([imagesx($img), imagesy($img)], TemplateLibrary::dimensions('chemistry', 800));
+    }
+
+    public function test_templates_reject_unknown_names_and_the_wrong_proportions(): void
+    {
+        try {
+            AdBuilder::make()->template('lavender-books');
+            $this->fail('unknown template accepted');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('Unknown template', $e->getMessage());
+        }
+        try {
+            AdBuilder::make()->size(1200, 300)->images($this->packshot())->template('mathematics')->headline('Notes')->render();
+            $this->fail('1200x300 accepted');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('TemplateLibrary::dimensions', $e->getMessage());
+            $this->assertStringContainsString('1200x538', $e->getMessage());
+        }
+        $this->assertSame([1200, 538], TemplateLibrary::dimensions('mathematics'));
+    }
+
+    public function test_every_subject_gets_the_template_made_for_it(): void
+    {
+        $expected = [
+            'Physics' => 'physics', 'Chemistry' => 'chemistry', 'Biology' => 'biology',
+            'Maths' => 'mathematics', 'Applied Mathematics' => 'mathematics', 'Calculus' => 'mathematics', 'Alegbra' => 'mathematics',
+            'Science' => 'science', 'English' => 'english', 'Grammar' => 'english', 'Hindi' => 'hindi', 'Sanskrit' => 'hindi',
+            'Marathi' => 'marathi', 'Lokvani' => 'marathi',
+            'Social Science' => 'social-science', 'History' => 'social-science', 'Geography' => 'social-science',
+            'Political Science' => 'social-science', 'History + Geography' => 'social-science',
+            'EVS' => 'evs-gk', 'General Knowlegde' => 'evs-gk', 'Reasoning' => 'evs-gk', 'Coloring Book' => 'evs-gk',
+            'Accounts' => 'general', 'Computer Science - I' => 'general', 'Psychology' => 'general', 'Something nobody listed' => 'general',
+            'Eng/Mar/His' => 'general', 'English + Hindi + Marathi + History + Geography + Maths + Science' => 'general',
+        ];
+        foreach ($expected as $label => $template) {
+            $this->assertSame($template, TemplateLibrary::pickFor($label), $label);
+            $this->assertTrue(TemplateLibrary::has(TemplateLibrary::pickFor($label)));
+        }
+    }
+
+    public function test_the_title_refines_the_choice_and_related_sciences_rotate(): void
+    {
+        $this->assertSame('evs-gk', TemplateLibrary::pickFor('English', 0, 'Blossom Colouring Book for 5+ Year Old Kids'));
+        $this->assertSame('physics', TemplateLibrary::pickFor('Some new subject', 0, 'MHT-CET Physics Notes'));
+        $this->assertSame('science', TemplateLibrary::pickFor('Some new subject', 0, 'Std. X Science and Technology'));
+        $this->assertSame('hindi', TemplateLibrary::pickFor('Hindi', 0, 'Std. 8 Hindi Sulabhbharati'));
+        $this->assertSame('marathi', TemplateLibrary::pickFor('Languages', 0, 'Std. 10 Marathi Kumarbharati'));
+
+        $this->assertSame(['physics', 'chemistry', 'mathematics'], TemplateLibrary::forSubject('PCM'));
+        $this->assertSame('physics', TemplateLibrary::pickFor('PCM', 0));
+        $this->assertSame('chemistry', TemplateLibrary::pickFor('PCM', 1));
+        $this->assertSame('mathematics', TemplateLibrary::pickFor('PCM', 2));
+        $this->assertSame(TemplateLibrary::pickFor('PCM', 7), TemplateLibrary::pickFor('PCM', 7), 'the same seed is stable');
+    }
+
+    public function test_builder_subject_chooses_the_template_and_an_explicit_one_overrides_it(): void
+    {
+        $this->assertNull(AdBuilder::make()->templateName());
+        $this->assertSame('physics', AdBuilder::make()->subject('Physics')->templateName());
+        $this->assertSame('chemistry', AdBuilder::make()->subject('PCM', 1)->templateName());
+        $this->assertSame('evs-gk', AdBuilder::make()->subject('English', 0, 'Alphabet Activity Book for Kids')->templateName());
+
+        [$w, $h] = TemplateLibrary::dimensions('physics', 600);
+        $make = fn () => AdBuilder::make()->size($w, $h)->images($this->packshot())->headline('Notes')->font($this->font);
+        $this->assertSame($make()->template('physics')->toPng(), $make()->subject('Physics')->toPng());
+        $this->assertNotSame($make()->subject('Physics')->toPng(), $make()->subject('Physics')->template('biology')->toPng());
     }
 
     public function test_removed_styles_are_gone_and_the_plain_layout_serves_the_remaining_sizes(): void

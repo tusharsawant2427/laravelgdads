@@ -154,13 +154,14 @@ final class AdBuilder
 
 
     /**
-     * Use one of the illustrated banner templates (see Templates\TemplateLibrary::names()): a light, hand-drawn style
-     * background with the product, headline and button in its open middle. Needs a wide size (3.6:1 or wider) or a portrait one such as 336x453.
+     * Use one of the subject templates (see Templates\TemplateLibrary::names()): finished artwork with the product cover
+     * drawn over its book and the headline / sub-headline (tagline) in its copy zone. Logo, benefit icons and the button
+     * are part of the artwork. Render at the template's own proportions: TemplateLibrary::dimensions($name, 1200).
      */
     public function template(?string $name): self
     {
         if ($name !== null) {
-            TemplateLibrary::palette($name);   // validates the name
+            TemplateLibrary::spec($name);   // validates the name
         }
         $this->spec->template = $name;
 
@@ -171,8 +172,8 @@ final class AdBuilder
      * Pick a template that suits the subject: "Physics", "PCM", "Computer Science - I", "Eng/Mar/His", "Alegbra" (typos and
      * short forms are understood, see Templates\Subjects). $variant rotates through the templates of that subject, so a
      * book series can use a different look per title; the same variant always gives the same template.
-     * Pass the product title as $title too and the look follows what the book is about: a colouring or activity book gets a
-     * children's template even when it is filed under "English", and an unknown subject falls back to the title's keywords.
+     * Pass the product title as $title too and the look follows what the book is about: a colouring or activity book gets the
+     * EVS / General Knowledge template even when it is filed under "English", and an unknown subject falls back to the title's keywords.
      * Call ->template($name) afterwards to override the choice.
      */
     public function subject(string $label, int $variant = 0, ?string $title = null): self
@@ -380,11 +381,6 @@ final class AdBuilder
 
         $spec = $this->splitTitle(clone $spec);
         $theme = $spec->theme ?? $this->resolveTheme();
-        if ($spec->template !== null) {
-            // Text and button colours come from the template, not from the cover.
-            ['ink' => $ink, 'accent' => $accent] = TemplateLibrary::palette($spec->template);
-            $theme = new Theme($accent, $accent, $accent, $theme->backgroundFrom, $theme->backgroundTo, $ink);
-        }
         $heading = new Typography($spec->fontPath);
         $bodyPath = $spec->bodyFontPath;
         if ($bodyPath === null && realpath($spec->fontPath) === realpath(self::bundledFont('Bold'))) {
@@ -417,25 +413,22 @@ final class AdBuilder
             }
         }
 
-        if ($spec->template !== null) {
-            TemplateLibrary::paint(
-                $spec->template,
-                $canvas,
-                $spec->scriptFontPath ? new Typography($spec->scriptFontPath) : null,
-                $layout instanceof TemplateLayout ? $layout->reserveRight($spec, $heading) : 0
-            );
-        } elseif ($aiImage !== null) {
-            $spec->textPanel ??= $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
-            // With a panel behind the text the photo can stay brighter and more visible.
-            AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel);
-            $spec->textShadow = $spec->aspectRatio() >= 3.2;   // photo strips: light overlay + text shadow keep the scene visible
-        } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
-            $style = $spec->background === 'auto' ? match (true) {
-                $layout instanceof CompanionLayout => 'paper',
-                default => 'auto',
-            } : $spec->background;
-            Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
+        // A template layout paints its own artwork; the others sit on a background.
+        if ($spec->template === null) {
+            if ($aiImage !== null) {
+                $spec->textPanel ??= $spec->aspectRatio() < 3.2;   // strips use a blurred, tinted band instead
+                // With a panel behind the text the photo can stay brighter and more visible.
+                AiBackground::paint($canvas, $aiImage, $theme, (bool) $spec->textPanel);
+                $spec->textShadow = $spec->aspectRatio() >= 3.2;   // photo strips: light overlay + text shadow keep the scene visible
+            } elseif (!($layout instanceof HeroLayout && $spec->hasImages())) {
+                $style = $spec->background === 'auto' ? match (true) {
+                    $layout instanceof CompanionLayout => 'paper',
+                    default => 'auto',
+                } : $spec->background;
+                Backgrounds::paint($style, $canvas, $this->specWithTheme($theme), $theme);
+            }
         }
+
         $layout->render($canvas, $spec, $theme, $heading, $body);
 
         return $canvas->image();
@@ -558,8 +551,10 @@ final class AdBuilder
     private function resolveLayout(): Layout
     {
         if ($this->spec->template !== null) {
-            if ($this->spec->aspectRatio() < 3.6 && !TemplateLibrary::isPortrait($this->spec->width, $this->spec->height)) {
-                throw new InvalidArgumentException("Template [{$this->spec->template}] needs a wide size (3.6:1 or wider) or a portrait one (taller than 0.9:1), got {$this->spec->width}x{$this->spec->height}.");
+            $ratio = TemplateLibrary::ratio($this->spec->template);
+            if (abs($this->spec->aspectRatio() / $ratio - 1) > 0.2) {
+                [$w, $h] = TemplateLibrary::dimensions($this->spec->template, $this->spec->width);
+                throw new InvalidArgumentException("Template [{$this->spec->template}] is " . round($ratio, 2) . ":1, not {$this->spec->width}x{$this->spec->height}. Use TemplateLibrary::dimensions('{$this->spec->template}') (e.g. {$w}x{$h}).");
             }
 
             return new TemplateLayout($this->spec->template);

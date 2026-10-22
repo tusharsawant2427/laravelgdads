@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.0.0
+
+### Changed (breaking)
+- The 58 GD-drawn illustrated templates (and their props, portrait layout, theme groups per template and
+  `TemplateLibrary::zone/artwork/band/byGroup/forGroup`) are removed. They are replaced by the subject templates: finished
+  artwork per subject (`mathematics`, `science`, `english`, `hindi`, `marathi`, `social-science`, `physics`, `chemistry`,
+  `biology`, `evs-gk`, `general`) in `resources/templates`. The product cover is drawn over the template's book, the product
+  title and an optional tagline in its copy zone; logo, benefit icons and button are part of the artwork.
+- Templates have their own proportions (about 2.2:1 to 3:1, not 4:1): use `TemplateLibrary::dimensions($name, $width)`.
+  Other proportions throw.
+- `->subject()` / `TemplateLibrary::pickFor()` now return one of these templates (`PCM` and friends rotate through their subjects).
+
+### Added
+- `tools/prepare_templates.py` to rebuild the plates and manifest from new artwork.
+
 ## 1.1.0
 
 ### Added

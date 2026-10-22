@@ -12,7 +12,8 @@ with a packshot. Pick a size, give it images and copy, get a ready-to-publish PN
 ![leaderboard](docs/examples/leaderboard.png)
 ![companion](docs/examples/companion.png)
 ![companion strip](docs/examples/companion-strip.png)
-![template](docs/examples/template-lavender-books.png)
+![mathematics template](docs/examples/template-mathematics.png)
+![physics template](docs/examples/template-physics.png)
 
 The plain-layout and showcase images come from `php examples/generate.php`, the illustrated ones from `php examples/companion.php` and
 `php examples/templates.php`.
@@ -21,7 +22,7 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 
 - **Fluent builder**: one readable chain per ad.
 - **Ad-size presets** (`AdSize`): 300x250, 728x90, 970x250, 300x600, 160x600, 320x50/100, 1080x1080, 1080x1350, 1080x1920, 1200x628 and more. Render one creative to many sizes with `renderSizes()`.
-- **Layouts**: `stacked` (the plain layout: product(s) on top, text below; used for square, portrait, story and other non-wide sizes), `showcase` (wide banners: a cover on each side, message in the middle), `hero` (full-bleed photo with a scrim), `companion` (light illustrated ad) and the 58 illustrated `template`s for strips and portraits. `auto` picks one from the size. Register your own with `AdBuilder::registerLayout()`.
+- **Layouts**: `stacked` (the plain layout: product(s) on top, text below; used for square, portrait, story and other non-wide sizes), `showcase` (wide banners: a cover on each side, message in the middle), `hero` (full-bleed photo with a scrim), `companion` (light illustrated ad) and the subject `template`s (finished artwork per subject). `auto` picks one from the size. Register your own with `AdBuilder::registerLayout()`.
 - **Colour from the image**: the dominant brand hue becomes the background; headline and button colours are picked for readable contrast (WCAG AA).
 - **Packshot cut-out**: a flat white studio background is removed, white areas inside the product are kept, and the baked-in drop shadow turns into a real soft shadow.
 - **Auto-fitting text**: headline, sub-headline and tick-list shrink and wrap to fit any size; text that cannot fit is ellipsised.
@@ -29,64 +30,64 @@ The plain-layout and showcase images come from `php examples/generate.php`, the 
 - **Backgrounds drawn from the covers**: the default `auto` (= `studio`) is a layered design: brand gradient, light beams, flowing waves, rings, dot grid, bokeh and a vignette. Also `paper` (light page), `mesh` (simple), `gradient`, `solid`, `blur`. The colours come from the front cover (the back cover only adds supporting tones). Plus the original `wave1`, `stripes`, `radial`, `spotlight`, `burst`, `medical`, ... and your own via `Backgrounds::register()`.
 - **Output**: `toPng()`, `toJpg()`, `toWebp()`, `toDataUri()`, `save($path)`, `saveTo($storagePath, $disk)`.
 
-## Illustrated templates (58 banner styles, grouped by subject)
+## Subject templates (one artwork per subject)
 
-Ready-made backgrounds (mostly light, a few dark) with illustrated edges (watercolour washes, waves, brush swipes, leaves, hex and graph-paper
-patterns, and props for physics (atom, bulb, prism, magnet, Newton's cradle, graphs), chemistry (flasks, test tubes, molecule), maths (protractor, ruler, set square, calculator), biology (DNA, microscope), geography (globe), success (trophy, graduation cap, confetti) and more: stacked books, notebook, plant, clock, rocket, clouds).
-The product, headline and button go in the open middle. Everything is drawn with GD, no assets and no network.
+Ten finished banners, one per subject, plus a generic one: `mathematics`, `science`, `english`, `hindi`, `marathi`,
+`social-science`, `physics`, `chemistry`, `biology`, `evs-gk` and `general`. Each is a separate file in
+`resources/templates/<name>.jpg` with its own subject background and props. The logo, benefit icons and the "Shop Now"
+button are part of the artwork; the headline and tagline placeholder and the book are removed, and the library draws
+
+- the product cover, as a 3D book standing where the template's book was (it covers the placeholder completely),
+- the product title (headline) in the template's headline colour, auto-sized to fit, up to 3 lines,
+- an optional tagline (`subheadline`) under it.
 
 ```php
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 
-TemplateLibrary::names();   // sky-atom, peach-leaves, lavender-bubbles, aqua-hex, yellow-brush, lavender-books, doodle-grid,
-                            // coral-waves, green-leaves, blue-waves-atom, books-emc2, lavender-notebook, cradle-blue,
-                            // peach-physics, magnet-purple, green-graph, bulb-leaves, aqua-atom, prism-rainbow, yellow-projectile,
-                            // mint-chemistry, sunrise-maths, forest-biology, ocean-globe, navy-success, cream-stationery,
-                            // rose-celebration, blueprint-dark, sunny-rocket, mint-graph-paper, teal-exam-clock, plum-premium
+TemplateLibrary::names();                       // mathematics, science, english, hindi, marathi, social-science, physics, ...
+[$w, $h] = TemplateLibrary::dimensions('physics', 1200);   // the templates differ in proportions: 1200x524 here
 
-Laragdads::ad()->size(AdSize::STRIP)->images($cover)->template('lavender-books')
-    ->headline('MHT-CET Physics: 28 Years Previous Solved Papers')->subheadline('Chapter-wise papers from 1999 to 2026')
-    ->cta('Buy now')->save('ads/strip.png');
+Laragdads::ad()->size($w, $h)->images($cover)->template('physics')
+    ->headline('Std. XII Physics Part 1')->subheadline('Chapter-wise notes and numericals')
+    ->save('ads/physics.png');
 
-// The same templates as a 336x453 portrait: decorated bands frame the top and bottom, the headline sits in the top band,
-// then a big product box, the sub-headline and the button (always at the same place above the bottom band):
-Laragdads::ad()->size(336, 453)->images($cover)->subject('Physics')->headline('Physics Notes')
-    ->subheadline('Chapter-wise notes and practice papers')->cta('Buy now')->save('ads/portrait.png');
-
-// Just the background, any size 3.6:1 or wider (decorations hug the edges and scale with the height):
-TemplateLibrary::paint('prism-rainbow', Canvas::create(2000, 256));
+// or let the subject choose (the title refines the choice; $variant rotates through related subjects):
+$template = TemplateLibrary::pickFor($subjectName, $product->id, $product->title);
+Laragdads::ad()->subject($subjectName, $product->id, $product->title)->size(...TemplateLibrary::dimensions($template))
 ```
 
-### Templates by subject
+Rendering at a size whose proportions differ from the template's by more than 20% throws and names the right size.
+CTA, badge, features and logo of the builder are not used with templates: they are part of the artwork.
 
-Each template belongs to one or more theme groups (physics, chemistry, biology, maths, maths-advanced, languages, history,
-geography, civics, commerce, computer, psychology, art, reasoning, sports, environment, kids, general). Give the subject and the
-library picks a template that suits it. Subject labels are normalised, so typos (`Alegbra`, `Trignometry`, `General Knowlegde`),
-spacing and short forms (`Eng/Mar/His`, `PCM`, `Physics + Chemistry + Maths`) all work.
+### Which template for which subject
+
+Subject labels are normalised first (case, spacing, typos such as `Alegbra`, short forms such as `Eng/Mar/His`, `PCM`).
+
+| Subject | Template |
+| --- | --- |
+| Physics / Chemistry / Biology | `physics` / `chemistry` / `biology` |
+| Maths, Applied Maths, Algebra, Calculus, Trigonometry ... | `mathematics` |
+| Science | `science` |
+| English, Grammar, Vocabulary | `english` |
+| Hindi, Sanskrit | `hindi` |
+| Marathi, Lokvani | `marathi` |
+| History, Geography, Civics, Political Science, Social Science | `social-science` |
+| EVS, General Knowledge, Reasoning, children's / colouring / activity books | `evs-gk` |
+| PCM, PCB, PCMB | rotates through the matching subject templates (by `$variant`) |
+| Commerce, computer, psychology, art, mixed lists, anything unknown | `general` |
 
 ```php
-Laragdads::ad()->size(AdSize::STRIP)->images($cover)->subject('Physics + Chemistry + Maths')   // a PCM look
-    ->headline('PCM Notes')->cta('Buy now')->save('ads/pcm.png');
-
-// Pass the product title too: a colouring/activity book gets a children's template even when it is filed under "English",
-// and an unknown subject falls back to the keywords in the title.
-->subject($subjectName, variant: $product->id, title: $product->title);
-
-->subject('Calculus', variant: 2);                  // rotate through that subject's templates, one look per title
-TemplateLibrary::forSubject('Accounts');            // all templates that suit a subject
-TemplateLibrary::byGroup();                         // group => templates
-Subjects::groups('Eng/Mar/His');                    // ['languages', 'history']
-Subjects::unknown('Some new subject');              // names the catalogue does not know yet
+TemplateLibrary::forSubject('PCM');     // ['physics', 'chemistry', 'mathematics']
+Subjects::groups('Eng/Mar/His');        // ['languages', 'history']
+Subjects::unknown('Some new subject');  // names the catalogue does not know yet
 ```
 
-A single subject uses its own group. Related sciences (`PCM`, `PCB`, `PCMB`, `Science`) draw on all of their themes, `Social
-Science` and `History + Geography` on history, geography and civics, and a mix of unrelated subjects (languages + social
-studies + science ...) on the `general` pool. A subject the catalogue does not know falls back to `general`: add it to
-`Subjects::MAP`. The full table is in [docs/subjects.md](docs/subjects.md).
+### Adding or replacing a template
 
-Text and button colours come from the template. The call-to-action button is fixed: on every template it sits flush
-right, vertically centred and at the same size, and the illustration is painted to the left of it, so nothing covers the button. Below 7:1 (such as 1200x200) the secondary doodles are dropped so the
-content fits. `php examples/templates.php` writes every template as a background and as a complete strip.
+`tools/prepare_templates.py` builds `resources/templates/` (cleaned plates + `manifest.php`) from the designers' artwork: it
+removes the label and the headline / tagline placeholders and records where the copy zone and the book are. Supplying
+higher-resolution originals gives sharper banners: adjust the boxes at the top of the script and run it again.
+`php examples/templates.php` writes one banner per template.
 
 ## Companion layout (light, illustrated)
 
@@ -141,7 +142,7 @@ $ad->lastAiError();  // why it fell back to the built-in background (null when A
   written for each scene (a row of books on a shelf, a long lab bench, rows of exam desks ...), not cropped from a landscape photo.
   The overlay is kept light and the headline gets a soft shadow, so the scene stays visible.
 - **Your own prompt:** `->aiBackground(prompt: 'wide panoramic photo, ...')` overrides the built-in one.
-- **Strips (1200x200):** use the showcase layout (a cover on each side, the headline between) or, for illustrated strips, the templates (`->template($name)` or `->subject($label)`). AI backgrounds only apply to the layouts, not to the templates.
+- **Strips (1200x200):** use the showcase layout (a cover on each side, the headline between) or the subject templates (`->template($name)` or `->subject($label)`, at the template's own proportions). AI backgrounds only apply to the layouts, not to the templates.
 - **Try it:** `AIHORDE_API_KEY=... php examples/ai.php`.
 - Needs `ext-curl`. Check AI Horde's terms and your use case before publishing generated images commercially.
 
