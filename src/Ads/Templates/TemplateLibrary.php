@@ -453,8 +453,7 @@ final class TemplateLibrary
     }
 
     /**
-     * The entrance-exam banner for a label or title: NEET, MHT-CET or CUET have their own; two or more exams, JEE, or just "entrance
-     * exam" use the banner that shows all three. Null when no entrance exam is mentioned.
+     * The entrance-exam banner for a label or title when exactly one of NEET, MHT-CET or CUET is named; null otherwise.
      */
     private static function entranceExam(string $text): ?string
     {
@@ -464,13 +463,16 @@ final class TemplateLibrary
                 $found[] = $template;
             }
         }
-        $other = preg_match('/\bjee\b/iu', $text) === 1;
 
-        return match (true) {
-            count($found) === 1 && !$other => $found[0],
-            $found !== [] || $other || preg_match('/entrance exam/iu', $text) === 1 => 'entrance-exams',
-            default => null,
-        };
+        // One exam: its own banner, which shows the product's cover. Several exams, JEE or "entrance exam" have no banner of their own that
+        // can show a product ("entrance-exams" has three books of its own and no place for a cover): the subject template is used.
+        return count($found) === 1 && !preg_match('/\bjee\b/iu', $text) ? $found[0] : null;
+    }
+
+    /** Whether the text names an entrance exam at all (block ads have one template for all of them). */
+    private static function mentionsEntranceExam(string $text): bool
+    {
+        return preg_match('/\bneet\b|\bm\.?h\.?t\.?[\s-]*cet\b|\bmht\b|\bcet\b|\bcuet\b|\bjee\b|entrance exam/iu', $text) === 1;
     }
 
     /**
@@ -510,7 +512,7 @@ final class TemplateLibrary
         $text = trim($label . ' ' . ($title ?? ''));
         $subjects = Subjects::subjects($label);
 
-        if (self::entranceExam($text) !== null) {
+        if (self::mentionsEntranceExam($text)) {
             return 'block-entrance';
         }
         if (in_array('economics', $subjects, true) || (!array_diff($subjects, ['economics']) && $subjects !== [])) {

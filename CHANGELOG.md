@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.1
+
+### Fixed
+- Products mentioning JEE, several entrance exams or "entrance exam" got the `entrance-exams` banner, which shows three books of its own and has no
+  place for the product's cover. It is no longer chosen for a product: the subject template is used instead (`neet`, `mht-cet` and `cuet` are
+  still chosen when exactly one of them is named). Block ads keep `block-entrance` for any exam.
+
 ## 3.1.0
 
 ### Added

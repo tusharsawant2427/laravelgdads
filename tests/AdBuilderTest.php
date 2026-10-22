@@ -1080,9 +1080,10 @@ final class AdBuilderTest extends TestCase
         $expected = [
             [['Accounts', 'CUET-UG Book Keeping & Accountancy 10 Practice Papers'], 'cuet'],
             [['English', 'CUET-UG English Book for 2024-2025 Entrance Exam'], 'cuet'],
-            [['Chemistry', 'NEET-UG and MHT-CET Biology Volume 2 OmniPrep Notes'], 'entrance-exams'],
-            [['Some new subject', 'JEE Main Mathematics Notes'], 'entrance-exams'],
-            [['Some new subject', 'Entrance Exam Preparation Guide'], 'entrance-exams'],
+            [['Chemistry', 'NEET-UG and MHT-CET Biology Volume 2 OmniPrep Notes'], 'chemistry'],
+            [['Some new subject', 'JEE Main Mathematics Notes'], 'mathematics'],
+            [['Physics', 'JEE-Mains Intensive Physics Vol 1 & 2 Books 2024-2025'], 'physics'],
+            [['Some new subject', 'Entrance Exam Preparation Guide'], 'general'],
             [['Biology', 'NEET Biology Notes'], 'neet'],
             [['Chemistry', 'MHT-CET Chemistry Test Series Book'], 'mht-cet'],
             [['Physics', 'MHT CET 2026 Physics Question Bank'], 'mht-cet'],
