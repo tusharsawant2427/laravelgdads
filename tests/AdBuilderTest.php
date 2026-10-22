@@ -942,6 +942,65 @@ final class AdBuilderTest extends TestCase
         $this->assertGreaterThan(1200 * 0.7, $bx, 'the book stays at the right');
     }
 
+    public function test_block_templates_are_twenty_300x250_plates_with_their_own_parts(): void
+    {
+        $blocks = TemplateLibrary::blockNames();
+        $this->assertCount(20, $blocks);
+        $this->assertCount(0, array_intersect($blocks, TemplateLibrary::names()), 'the banner list has no block templates');
+        foreach ($blocks as $name) {
+            $spec = TemplateLibrary::spec($name);
+            $this->assertTrue(TemplateLibrary::isBlock($name));
+            $this->assertEqualsWithDelta(1.2, TemplateLibrary::ratio($name), 0.001, $name);
+            foreach (['zone', 'book', 'logo', 'button', 'featureRow'] as $rect) {
+                [$x0, $y0, $x1, $y1] = $spec[$rect];
+                $this->assertTrue($x0 >= 0 && $y0 >= 0 && $x1 <= 1 && $y1 <= 1 && $x0 < $x1 && $y0 < $y1, "{$name}: {$rect}");
+            }
+            $this->assertLessThan($spec['book'][0], $spec['zone'][2], "{$name}: the title zone ends before the book");
+            $this->assertLessThan($spec['featureRow'][3], $spec['zone'][3] - 0.02, "{$name}: the feature column is below the title");
+            $this->assertNotEmpty(TemplateLibrary::defaultFeatures($name), $name);
+
+            $img = $this->decode(AdBuilder::make()->size(300, 250)->images($this->packshot())->template($name)->headline('Std. X Mathematics Part 1')->font($this->font)->matchCoverColour(false)->toPng());
+            $this->assertSame([300, 250], [imagesx($img), imagesy($img)], $name);
+            [$bx, $by, $bw, $bh] = TemplateLibrary::rect($spec['book'], ['scale' => 0.5, 'x' => 0.0, 'y' => 0.0, 'width' => 300.0, 'height' => 250.0]);
+            [$r, $g, $b] = $this->rgb($img, $bx + intdiv($bw, 2), $by + (int) ($bh * 0.4));
+            $this->assertTrue($r > 100 && $g < 80 && $b > 100, "{$name}: the cover is drawn over the book ({$r},{$g},{$b})");
+        }
+        $this->assertSame(['block-physics', 'block-chemistry', 'block-biology'], array_map(fn ($s) => TemplateLibrary::blockFor($s), ['Physics', 'Chemistry', 'Biology']));
+    }
+
+    public function test_block_template_choice_follows_exam_topic_and_subject(): void
+    {
+        $expected = [
+            ['Maths', null, 'block-mathematics'], ['Alegbra', null, 'block-mathematics'], ['Science', null, 'block-science'], ['EVS', null, 'block-science'],
+            ['English', null, 'block-english'], ['Hindi', null, 'block-hindi'], ['Marathi', null, 'block-marathi'], ['Sanskrit', null, 'block-hindi'],
+            ['History', null, 'block-history'], ['Geography', null, 'block-geography'], ['Political Science', null, 'block-social-science'],
+            ['Accounts', null, 'block-commerce'], ['Economics', null, 'block-economics'], ['Computer', null, 'block-computer'],
+            ['Art and Craft', null, 'block-art-craft'], ['Defence Studies', null, 'block-defence'], ['General Knowlegde', null, 'block-gk'],
+            ['Physics', 'MHT-CET Physics Notes', 'block-entrance'], ['Accounts', 'CUET-UG Book Keeping Papers', 'block-entrance'],
+            ['English', 'Nursery Rhymes Book', 'block-pre-primary'], ['English', 'Std 3 Handwriting Book', 'block-primary'],
+            ['Some new subject', 'Drawing and Colouring Book for Kids', 'block-pre-primary'], ['Some new subject', 'Crafty Art and Craft Kit for Kids', 'block-art-craft'],
+            ['Psychology', 'Std 12 Psychology Book', 'block-gk'], ['Something nobody listed', null, 'block-gk'],
+            ['English + Maths + Science', null, 'block-gk'], ['Physical Education', 'Std 1 Physical Education Book', 'block-gk'],
+        ];
+        foreach ($expected as [$label, $title, $template]) {
+            $this->assertSame($template, TemplateLibrary::blockFor($label, $title), $label . ' / ' . $title);
+            $this->assertTrue(TemplateLibrary::has($template));
+        }
+    }
+
+    public function test_block_and_banner_templates_refuse_each_others_sizes(): void
+    {
+        foreach ([['block-physics', 1200, 300], ['mathematics', 300, 250]] as [$name, $w, $h]) {
+            try {
+                AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Notes')->render();
+                $this->fail("{$name} accepted {$w}x{$h}");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('too far', $e->getMessage());
+            }
+        }
+        $this->assertSame([600, 500], array_values(array_map(fn ($d) => $d * 2, TemplateLibrary::dimensions('block-physics', 300))));
+    }
+
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
     {
         $img = $this->banner('chemistry', 'Chemistry Notes', null, false);

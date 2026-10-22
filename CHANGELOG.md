@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.0
+
+### Added
+- 20 block (300x250) templates made like the banners (`block-mathematics` ... `block-defence`, `TemplateLibrary::blockNames()`, `blockFor()`):
+  corporate logo, product title, feature list, cover on the book, background and button in the cover's colour.
+
+### Removed (breaking)
+- `Laragdads::createBlockAdsBanner()`, `BlockAdsService` and `ImageService::createBlockWithPrimaryColorBanner()`: the plain-colour block ad.
+- `TemplateLibrary::names()` no longer lists the block templates (`blockNames()` does).
+
 ## 2.6.0
 
 ### Added

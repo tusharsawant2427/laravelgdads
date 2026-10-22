@@ -80,6 +80,23 @@ A size too far from the template's proportions (narrower than 0.8x or wider than
 `TemplateLibrary::dimensions($name, 1200)` gives the artwork's own size.
 CTA and badge of the builder are not used with templates: the button is part of the artwork.
 
+### Block ads (300x250)
+
+Twenty block templates, one per exam, topic or subject, made like the banners: `block-entrance`, `block-mathematics`, `block-science`,
+`block-english`, `block-hindi`, `block-marathi`, `block-social-science`, `block-commerce`, `block-computer`, `block-physics`,
+`block-chemistry`, `block-biology`, `block-geography`, `block-history`, `block-economics`, `block-primary`, `block-pre-primary`,
+`block-art-craft`, `block-gk`, `block-defence` (`TemplateLibrary::blockNames()`). Each plate keeps its artwork and the Shop Now button; the library draws
+the corporate logo, the product title (up to four lines), the feature list (one chip per line, `->features([...])` as for banners) and the cover on the book,
+and the background and button follow the cover colour. The old plain-background block ads (and `createBlockAdsBanner`) are gone.
+
+```php
+$template = TemplateLibrary::blockFor($subjectName, $product->title);   // e.g. 'block-physics'; exams and kids' books by title
+
+Laragdads::ad()->size(300, 250)->images($cover)->template($template)->headline($product->title)->features([])->saveTo('ads/block.png');
+```
+
+Block templates only render at 300x250 (or a scaled copy), banners only at their own wide sizes.
+
 ### Which template for which subject
 
 Subject labels are normalised first (case, spacing, typos such as `Alegbra`, short forms such as `Eng/Mar/His`, `PCM`).
@@ -254,7 +271,7 @@ AdBuilder::registerLayout('mine', new MyLayout());   // implements Layouts\Layou
 
 ## Legacy API
 
-The original static methods (`createHorizontalAdsBanner`, `createVerticalAdsBanner`, `createBlockAdsBanner`, `saveAdsBannerPng`, `saveAdsBannerJpg`) still work. `saveAdsBannerPng/Jpg` no longer send HTTP headers, and JPG quality is now 90 instead of 9.
+The original static methods (`createHorizontalAdsBanner`, `createVerticalAdsBanner`, `saveAdsBannerPng`, `saveAdsBannerJpg`) still work; `createBlockAdsBanner` was removed (block ads are templates now, see below). `saveAdsBannerPng/Jpg` no longer send HTTP headers, and JPG quality is now 90 instead of 9.
 
 ## Tests
 

@@ -5,7 +5,6 @@ namespace Packitifotech\Laragdads;
 use GdImage;
 use Packitifotech\Laragdads\Ads\AdBuilder;
 use Illuminate\Support\Facades\Storage;
-use Packitifotech\Laragdads\Services\Ads\BlockAdsService;
 use Packitifotech\Laragdads\Services\Ads\HorizontalAdsService;
 use Packitifotech\Laragdads\Services\Ads\VerticalAdsService;
 use Packitifotech\Laragdads\Services\Image\ImageService;
@@ -41,25 +40,6 @@ class Laragdads
             $backgroundStyle
         );
     }
-
-    public static function createBlockAdsBanner(
-        string $imagePath,
-        ?string $text,
-        ?int $resizeWidth,
-        ?int $resizeHeight,
-        string $fontPath,
-        string $backgroundStyle = 'wave1'
-    ): GdImage {
-        return app(BlockAdsService::class)->createBanner(
-            $imagePath,
-            $text,
-            $resizeWidth,
-            $resizeHeight,
-            $fontPath,
-            $backgroundStyle
-        );
-    }
-
 
     public static function createVerticalAdsBanner(
         string $firstImagePath,

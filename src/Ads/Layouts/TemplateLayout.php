@@ -106,12 +106,17 @@ final class TemplateLayout extends AbstractLayout
         if ($n === 0) {
             return;
         }
+        $ink = $template['logoDark'] ? [255, 255, 255] : $template['tagline'];
+        if (!empty($template['block'])) {
+            $this->featureColumn($canvas, $labels, $icons, $font, $row, $ink);
+
+            return;
+        }
         $d = (int) round(min($h * 0.7, $w / (max($n, 3) * 3.2)));   // as many chips as labels: they shrink to fit the row
         if ($d < 6) {
             return;
         }
         $slot = (int) floor($w / max($n === 4 ? 4 : 3, $n));
-        $ink = $template['logoDark'] ? [255, 255, 255] : $template['tagline'];
         foreach ($labels as $i => $label) {
             $label = $this->printable($label, $font);
             $icon = $icons[$i] ?? '';
@@ -133,6 +138,33 @@ final class TemplateLayout extends AbstractLayout
     private function hasFeatures(AdSpec $spec, string $name): bool
     {
         return ($spec->featuresSet ? $spec->features : TemplateLibrary::defaultFeatures($name)) !== [];
+    }
+
+    /** Block templates: the chips are a list, one per line, in the column the artwork leaves left of the book. */
+    private function featureColumn(Canvas $canvas, array $labels, array $icons, Typography $font, array $row, array $ink): void
+    {
+        [$x, $y, $w, $h] = $row;
+        $n = count($labels);
+        $rowH = intdiv($h, max(3, $n));
+        $d = (int) round(min($rowH * 0.86, $w * 0.16));
+        if ($d < 6) {
+            return;
+        }
+        foreach (array_values($labels) as $i => $label) {
+            $label = $this->printable($label, $font);
+            $icon = $icons[$i] ?? '';
+            if ($icon === '' || !in_array($icon, Icons::names(), true)) {
+                $icon = $this->iconFor($label, $i);
+            }
+            $cy = $y + $i * $rowH + intdiv($rowH, 2);
+            $canvas->circle($x + intdiv($d, 2), $cy, $d, self::CHIP_COLOURS[$i % 4]);
+            Icons::draw($canvas, $icon, $x + intdiv($d, 2), $cy, (int) round($d * 0.58), [255, 255, 255], 0.07);
+
+            $lx = $x + $d + (int) round($d * 0.3);
+            $lw = $w - $d - (int) round($d * 0.3);
+            $fit = $font->fit($label, $lw, $rowH, (int) round($d * 0.7), 6, 1.05, 1);
+            $canvas->lines($fit['lines'], $font, $fit['size'], $lx, $cy - intdiv($fit['height'], 2), $lw, $ink, 'left', $fit['lineHeight']);
+        }
     }
 
     private function iconFor(string $label, int $position): string
@@ -204,7 +236,7 @@ final class TemplateLayout extends AbstractLayout
         }
 
         $headH = $tagline === '' ? $h : (int) round($h * self::HEADLINE_SHARE);
-        $head = $headingFont->fit($headline, $w, $headH, $headH, 8, 1.0, $tagline === '' ? 3 : 2);
+        $head = $headingFont->fit($headline, $w, $headH, $headH, 8, 1.0, !empty($template['block']) ? 4 : ($tagline === '' ? 3 : 2));
         $top = $y + intdiv($headH - $head['height'], 2);
         $canvas->lines($head['lines'], $headingFont, $head['size'], $x, $top, $w, $template['ink'], 'left', $head['lineHeight']);
 

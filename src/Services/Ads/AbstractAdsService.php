@@ -53,9 +53,4 @@ abstract class AbstractAdsService
     {
         return preg_replace('/(.{1,' . $width . '})(\s+|$)/uS', '$1' . $break, $text);
     }
-
-    public  function createBlockAdsBanner(string $imagePath): GdImage
-    {
-        return $this->imageService->createBlockWithPrimaryColorBanner($imagePath);
-    }
 }

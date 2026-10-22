@@ -167,21 +167,6 @@ class ImageService
     }
 
     /**
-     * Create block with primary color banner
-     */
-    public static function createBlockWithPrimaryColorBanner(
-        string $storagePath,
-        int $imageWidth = self::DEFAULT_IMAGE_WIDTH,
-        int $imageHeight = self::DEFAULT_IMAGE_HEIGHT
-    ): GdImage {
-        $palettes = self::getImagePrimaryColor($storagePath);
-        $backgroundImage = imagecreatetruecolor($imageWidth, $imageHeight);
-        $backgroundColor = imagecolorallocate($backgroundImage, ...$palettes);
-        imagefill($backgroundImage, 0, 0, $backgroundColor);
-        return $backgroundImage;
-    }
-
-    /**
      * Create seamless joined wave background
      */
     public static function createSeamlessJoinedWaveBackground(

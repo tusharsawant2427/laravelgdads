@@ -76,6 +76,28 @@ final class TemplateLibrary
         'entrance-exams' => ['Comprehensive Study Material', 'Practice Questions', "Previous Years' Papers"],
         'category' => ['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
         'category-orange' => ['Chapter-wise Theory', 'Solved Examples', 'Practice Questions', "Previous Years' Papers"],
+
+        // block (300x250) templates
+        'block-entrance' => ['Concept Clarity', 'Practice Questions', "Previous Years' Papers"],
+        'block-mathematics' => ['Easy Explanations', 'Solved Examples', 'Practice Questions'],
+        'block-science' => ['Concept Clarity', 'Solved Examples', 'Practice Questions'],
+        'block-english' => ['Grammar & Vocabulary', 'Solved Exercises', 'Comprehensive Practice'],
+        'block-hindi' => ['Simple Language', 'Practice Questions', 'Complete Study Material'],
+        'block-marathi' => ['Simple Language', 'Practice Questions', 'Complete Study Material'],
+        'block-social-science' => ['History', 'Geography', 'Civics', 'Economics'],
+        'block-commerce' => ['Accounts', 'Economics', 'Business Studies', 'Entrepreneurship'],
+        'block-computer' => ['Concepts Simplified', 'Practical Examples', 'Latest Curriculum'],
+        'block-physics' => ['Easy Concepts', 'Solved Examples', 'Numerical Practice'],
+        'block-chemistry' => ['Clear Concepts', 'Solved Examples', 'Practice Questions'],
+        'block-biology' => ['Concept Clarity', 'Diagrams & Examples', 'Practice Questions'],
+        'block-geography' => ['Maps & Diagrams', 'Concept Clarity', 'Practice Questions'],
+        'block-history' => ['Easy Explanations', 'Important Events', 'Practice Questions'],
+        'block-economics' => ['Concept Clarity', 'Graphs & Diagrams', 'Solved Examples'],
+        'block-primary' => ['Simple Explanations', 'Fun Exercises', 'Colourful Illustrations'],
+        'block-pre-primary' => ['Activity Based Learning', 'Fun Exercises', 'Build Foundational Skills'],
+        'block-art-craft' => ['Creative Activities', 'Step-by-Step Guides', 'Fun Projects'],
+        'block-gk' => ['Interesting Facts', 'Easy Explanations', 'Build Awareness'],
+        'block-defence' => ['Exam Focused Content', 'Current Affairs', 'Practice Questions'],
     ];
 
     /** @var array<string, array<string, mixed>>|null */
@@ -84,10 +106,21 @@ final class TemplateLibrary
     /** @var array<string, GdImage> */
     private static array $plates = [];
 
-    /** @return string[] template names */
+    /** @return string[] the banner (wide) template names; the block ones are in blockNames() */
     public static function names(): array
     {
-        return array_keys(self::manifest());
+        return array_values(array_filter(array_keys(self::manifest()), fn (string $name) => !self::isBlock($name)));
+    }
+
+    /** @return string[] the block (300x250) template names, "block-mathematics" ... */
+    public static function blockNames(): array
+    {
+        return array_values(array_filter(array_keys(self::manifest()), fn (string $name) => self::isBlock($name)));
+    }
+
+    public static function isBlock(string $name): bool
+    {
+        return str_starts_with($name, 'block-');
     }
 
     public static function has(string $name): bool
@@ -399,6 +432,61 @@ final class TemplateLibrary
         }
 
         return null;
+    }
+
+    /**
+     * The block (300x250) template for a product: the exam, topic or subject its label and title name. Subjects without a template of their
+     * own (psychology, sociology ...) get "block-gk"; the heading is the product's title anyway, so the artwork only sets the mood.
+     */
+    public static function blockFor(string $label, ?string $title = null): string
+    {
+        $text = trim($label . ' ' . ($title ?? ''));
+        $subjects = Subjects::subjects($label);
+
+        if (self::entranceExam($text) !== null) {
+            return 'block-entrance';
+        }
+        if (in_array('economics', $subjects, true) || (!array_diff($subjects, ['economics']) && $subjects !== [])) {
+            return 'block-economics';
+        }
+        if (($kids = self::childrensBook($text)) !== null) {
+            return match ($kids) {
+                'kids-activity' => preg_match('/craft|art\b/iu', $text) ? 'block-art-craft' : 'block-pre-primary',
+                'handwriting', 'primary' => 'block-primary',
+                default => 'block-pre-primary',
+            };
+        }
+        if ($subjects === ['science'] || (count($subjects) === 1 && in_array($subjects[0], ['evs', 'water security'], true))) {
+            return 'block-science';
+        }
+        if (preg_match('/defence/iu', $label)) {
+            return 'block-defence';
+        }
+
+        $pool = Subjects::pool($label, $title);
+        if (count($pool) > 1 || $pool === ['general']) {
+            if (preg_match('/\bstd\.?\s*[1-5]\b|\bprimary\b/iu', $text)) {
+                return 'block-primary';
+            }
+
+            return $pool === ['general'] && preg_match('/\bscience\b/iu', (string) $title) ? 'block-science' : 'block-gk';
+        }
+
+        return match ($pool[0]) {
+            'physics' => 'block-physics',
+            'chemistry' => 'block-chemistry',
+            'biology' => 'block-biology',
+            'maths', 'maths-advanced' => 'block-mathematics',
+            'history' => 'block-history',
+            'geography' => 'block-geography',
+            'civics' => 'block-social-science',
+            'commerce' => 'block-commerce',
+            'computer' => 'block-computer',
+            'art' => 'block-art-craft',
+            'kids' => 'block-pre-primary',
+            'languages' => 'block-' . self::languages($label, $title)[0],
+            default => 'block-gk',
+        };
     }
 
     /** The template for a subject; $seed rotates through the candidates (the same seed always gives the same one). */
