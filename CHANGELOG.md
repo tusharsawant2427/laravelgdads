@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1
+
+### Changed
+- Without feature labels (`->features([])`) the title block grows into the room the row would have used and is centred there, so the
+  banner does not look empty.
+
 ## 2.5.0
 
 ### Added

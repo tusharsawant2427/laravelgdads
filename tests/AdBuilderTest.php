@@ -867,6 +867,27 @@ final class AdBuilderTest extends TestCase
         $this->assertFalse((new AdSpec())->featuresSet);
     }
 
+    public function test_without_features_a_long_title_grows_into_the_empty_row(): void
+    {
+        [$w, $h] = TemplateLibrary::dimensions('physics', 800);
+        $zoneBottom = TemplateLibrary::spec('physics')['zone'][3];
+        $lower = function (string $title) use ($w, $h, $zoneBottom): int {
+            $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template('physics')->headline($title)
+                ->font($this->font)->matchCoverColour(false)->features([])->toPng());
+            $n = 0;
+            for ($y = (int) (($zoneBottom + 0.03) * $h); $y < (int) (($zoneBottom + 0.12) * $h); $y++) {
+                for ($x = (int) ($w * 0.08); $x < (int) ($w * 0.5); $x++) {
+                    [$r, $g, $b] = $this->rgb($img, $x, $y);
+                    $n += ($r > 235 && $g > 235 && $b > 235) ? 1 : 0;   // white lettering on the dark physics template
+                }
+            }
+
+            return $n;
+        };
+
+        $this->assertGreaterThan(300, $lower('Std. XII Physics Part 1 Notes for the Maharashtra Board with Numericals and Solutions'), 'lettering below the old title zone');
+    }
+
     public function test_every_template_has_a_cleared_feature_row_and_default_labels(): void
     {
         foreach (TemplateLibrary::names() as $name) {

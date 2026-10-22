@@ -46,7 +46,13 @@ final class TemplateLayout extends AbstractLayout
             if (isset($template['taglineZone'])) {
                 $this->category($canvas, $spec, $headingFont, $bodyFont, $map, $template);
             } else {
-                $this->copy($canvas, $spec, $headingFont, $bodyFont, TemplateLibrary::rect($template['zone'], $map), $template);
+                $zone = TemplateLibrary::rect($template['zone'], $map);
+                if (!$this->hasFeatures($spec, $name)) {
+                    // No feature row: the title block takes the room the row would have used, so the banner does not look empty.
+                    $row = TemplateLibrary::rect($template['featureRow'], $map);
+                    $zone[3] += (int) round(max(0, ($row[1] + $row[3]) - ($zone[1] + $zone[3])) * 0.85);
+                }
+                $this->copy($canvas, $spec, $headingFont, $bodyFont, $zone, $template);
             }
         }
         $this->features($canvas, $spec, $bodyFont, TemplateLibrary::rect($template['featureRow'], $map), $template, $name);
@@ -122,6 +128,11 @@ final class TemplateLayout extends AbstractLayout
             $fit = $font->fit($label, $lw, (int) round($d * 1.05), (int) round($d * 0.5), 6, 1.1, 2);
             $canvas->lines($fit['lines'], $font, $fit['size'], $lx, $cy - intdiv($fit['height'], 2), $lw, $ink, 'left', $fit['lineHeight']);
         }
+    }
+
+    private function hasFeatures(AdSpec $spec, string $name): bool
+    {
+        return ($spec->featuresSet ? $spec->features : TemplateLibrary::defaultFeatures($name)) !== [];
     }
 
     private function iconFor(string $label, int $position): string
