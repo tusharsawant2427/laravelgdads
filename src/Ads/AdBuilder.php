@@ -172,7 +172,8 @@ final class AdBuilder
     /**
      * Use one of the subject templates (see Templates\TemplateLibrary::names()): finished artwork with the product cover
      * drawn over its book and the headline / sub-headline (tagline) in its copy zone. Logo, benefit icons and the button
-     * are part of the artwork. Render at the template's own proportions: TemplateLibrary::dimensions($name, 1200).
+     * are part of the artwork. The templates differ in proportions (2.2:1 to 4.9:1); 1200x300 (TemplateLibrary::BANNER_WIDTH/HEIGHT) suits all of them, or
+     * use TemplateLibrary::dimensions($name, 1200) for the artwork's own size.
      */
     public function template(?string $name): self
     {
@@ -576,9 +577,10 @@ final class AdBuilder
     {
         if ($this->spec->template !== null) {
             $ratio = TemplateLibrary::ratio($this->spec->template);
-            if (abs($this->spec->aspectRatio() / $ratio - 1) > 0.2) {
+            $target = $this->spec->aspectRatio();
+            if ($target < $ratio * 0.8 || $target > $ratio * 2.1) {
                 [$w, $h] = TemplateLibrary::dimensions($this->spec->template, $this->spec->width);
-                throw new InvalidArgumentException("Template [{$this->spec->template}] is " . round($ratio, 2) . ":1, not {$this->spec->width}x{$this->spec->height}. Use TemplateLibrary::dimensions('{$this->spec->template}') (e.g. {$w}x{$h}).");
+                throw new InvalidArgumentException("Template [{$this->spec->template}] is " . round($ratio, 2) . ":1, too far from {$this->spec->width}x{$this->spec->height} (" . round($target, 2) . ":1). Use a size between " . round($ratio * 0.8, 1) . ":1 and " . round($ratio * 2.1, 1) . ":1, e.g. " . TemplateLibrary::BANNER_WIDTH . 'x' . TemplateLibrary::BANNER_HEIGHT . " or {$w}x{$h}.");
             }
 
             return new TemplateLayout($this->spec->template);

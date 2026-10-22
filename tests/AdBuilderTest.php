@@ -900,6 +900,48 @@ final class AdBuilderTest extends TestCase
         }
     }
 
+    public function test_every_template_fits_a_1200x300_banner_with_its_parts_in_place(): void
+    {
+        $w = TemplateLibrary::BANNER_WIDTH;
+        $h = TemplateLibrary::BANNER_HEIGHT;
+        foreach (TemplateLibrary::names() as $name) {
+            $img = $this->decode(AdBuilder::make()->size($w, $h)->images($this->packshot())->template($name)->headline('Std. X Mathematics Part 1')
+                ->features(['Chapter-wise Notes', 'Solved Examples', 'Practice Questions'])->font($this->font)->matchCoverColour(false)->toPng());
+            $this->assertSame([$w, $h], [imagesx($img), imagesy($img)], $name);
+
+            if (TemplateLibrary::spec($name)['book'] === null) {
+                continue;   // "entrance-exams" shows its own books
+            }
+            // The cover (the packshot's purple) stands inside the canvas, right of the middle.
+            $found = 0;
+            for ($y = 20; $y < $h - 20; $y += 6) {
+                for ($x = (int) ($w * 0.5); $x < $w; $x += 6) {
+                    [$r, $g, $b] = $this->rgb($img, $x, $y);
+                    $found += ($r > 110 && $r < 170 && $g < 60 && $b > 120 && $b < 180) ? 1 : 0;
+                }
+            }
+            $this->assertGreaterThan(20, $found, "{$name}: the cover is on the banner");
+        }
+    }
+
+    public function test_widening_a_template_keeps_the_rectangles_in_order_and_moves_the_book_right(): void
+    {
+        $name = 'mathematics';
+        $spec = TemplateLibrary::spec($name);
+        [$w, $h] = TemplateLibrary::dimensions($name, 800);
+        $native = ['scale' => 1.0, 'x' => 0.0, 'y' => 0.0, 'width' => (float) $w, 'height' => (float) $h];
+        $canvas = Canvas::create(1200, 300);
+        $wide = TemplateLibrary::paint($name, $canvas);
+        $this->assertArrayHasKey('gap', $wide);
+
+        [$zx, , $zw] = TemplateLibrary::rect($spec['zone'], $wide);
+        [$bx, , $bw] = TemplateLibrary::rect($spec['book'], $wide);
+        $this->assertGreaterThan($zx + $zw, $bx, 'the headline zone ends before the book');
+        $this->assertGreaterThan(TemplateLibrary::rect($spec['zone'], $native)[2] * 300 / $h, $zw, 'the headline zone is wider than the scaled plate');
+        $this->assertLessThanOrEqual(1200, $bx + $bw);
+        $this->assertGreaterThan(1200 * 0.7, $bx, 'the book stays at the right');
+    }
+
     public function test_a_banner_without_an_image_gets_a_plain_cover_rather_than_the_placeholder(): void
     {
         $img = $this->banner('chemistry', 'Chemistry Notes', null, false);
@@ -915,11 +957,10 @@ final class AdBuilderTest extends TestCase
             $this->assertStringContainsString('Unknown template', $e->getMessage());
         }
         try {
-            AdBuilder::make()->size(1200, 300)->images($this->packshot())->template('mathematics')->headline('Notes')->render();
-            $this->fail('1200x300 accepted');
+            AdBuilder::make()->size(1200, 200)->images($this->packshot())->template('mathematics')->headline('Notes')->render();
+            $this->fail('1200x200 accepted for a 2.2:1 template');
         } catch (InvalidArgumentException $e) {
-            $this->assertStringContainsString('TemplateLibrary::dimensions', $e->getMessage());
-            $this->assertStringContainsString('1200x538', $e->getMessage());
+            $this->assertStringContainsString('1200x300', $e->getMessage());
         }
         $this->assertSame([1200, 538], TemplateLibrary::dimensions('mathematics'));
     }

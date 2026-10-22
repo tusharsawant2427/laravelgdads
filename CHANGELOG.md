@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.0
+
+### Added
+- One banner size for every template: 1200x300 (`TemplateLibrary::BANNER_WIDTH` / `BANNER_HEIGHT`). A wider canvas than the artwork
+  (the 2.2:1 subject templates) widens the empty background between headline and book instead of shrinking or cropping the design,
+  so titles get more room; a narrower canvas (NEET, CUET, category: 4.3 to 4.9:1) is cropped at the right edge.
+- Sizes outside 0.8x to 2.1x of a template's proportions are refused with a hint (1200x200 is too thin for the subject templates).
+
 ## 2.5.1
 
 ### Changed

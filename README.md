@@ -62,7 +62,10 @@ ten colours instead). `->matchCoverColour(false)` keeps the colours as designed;
 ```php
 use Packitifotech\Laragdads\Ads\Templates\TemplateLibrary;
 
-[$w, $h] = TemplateLibrary::dimensions('physics', 1200);   // the templates differ in proportions: 1200x524 here
+// The templates differ in proportions (2.2:1 to 4.9:1). 1200x300 suits all of them: a taller template has the empty background
+// between its headline and its book widened (the title gets more room), a wider one is cropped at the right edge.
+// 1200x200 is too thin for the subject templates (title + feature row + button): they refuse it.
+$w = TemplateLibrary::BANNER_WIDTH; $h = TemplateLibrary::BANNER_HEIGHT;   // 1200 x 300
 
 Laragdads::ad()->size($w, $h)->images($cover)->template('physics')
     ->headline('Std. XII Physics Part 1')->subheadline('Chapter-wise notes and numericals')
@@ -70,10 +73,11 @@ Laragdads::ad()->size($w, $h)->images($cover)->template('physics')
 
 // or let the subject and the title choose:
 $template = TemplateLibrary::pickFor($subjectName, $product->id, $product->title);
-Laragdads::ad()->subject($subjectName, $product->id, $product->title)->size(...TemplateLibrary::dimensions($template))
+Laragdads::ad()->subject($subjectName, $product->id, $product->title)->size($w, $h)
 ```
 
-Rendering at a size whose proportions differ from the template's by more than 20% throws and names the right size.
+A size too far from the template's proportions (narrower than 0.8x or wider than 2.1x) throws and names sizes that work.
+`TemplateLibrary::dimensions($name, 1200)` gives the artwork's own size.
 CTA and badge of the builder are not used with templates: the button is part of the artwork.
 
 ### Which template for which subject

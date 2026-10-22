@@ -128,6 +128,11 @@ final class TemplateLibrary
         return $spec['width'] / $spec['height'];
     }
 
+    /** The size every ad is made at for the site: 4:1. Wider templates are cropped at the right edge, narrower ones have their background widened. */
+    public const BANNER_WIDTH = 1200;
+
+    public const BANNER_HEIGHT = 300;
+
     /**
      * The size to render a template at without cropping it: the given width and the matching height. The templates do not
      * share one aspect ratio, so ask each for its own size.
@@ -140,12 +145,15 @@ final class TemplateLibrary
     }
 
     /**
-     * Paint the artwork over the whole canvas (scaled to cover it, centred) and return how plate fractions map to canvas pixels.
-     * With $match (a cover's main colour as [r, g, b]) the background colour of the artwork is moved to that hue; a colourless
-     * cover (white, grey, black) leaves the artwork as designed. $accent (a button colour as [r, g, b]) repaints the red "Shop Now"
-     * button in that colour.
+     * Paint the artwork over the whole canvas and return how plate fractions map to canvas pixels (see rect()).
      *
-     * @return array{scale:float,x:float,y:float,width:float,height:float}
+     * The canvas can have other proportions than the artwork. A wider canvas (a 1200x300 banner for a 2.2:1 subject template) stretches the
+     * empty background between the headline and the book (the plate is scaled to the canvas height and that band is widened), so the
+     * headline, the feature row and the book keep their look and the title gets more room. A narrower canvas crops the right edge.
+     * With $match (a cover's main colour as [r, g, b]) the artwork's background colour is moved to that hue, and $accent (a button
+     * colour as [r, g, b]) repaints the red "Shop Now" button; a colourless cover (white, grey, black) leaves the artwork as designed.
+     *
+     * @return array{scale:float,x:float,y:float,width:float,height:float,gap?:array{0:float,1:float,2:float}}
      */
     public static function paint(string $name, Canvas $canvas, ?array $match = null, ?array $accent = null): array
     {
@@ -153,32 +161,80 @@ final class TemplateLibrary
         $spec = self::spec($name);
         $w = $canvas->width();
         $h = $canvas->height();
-        $scale = max($w / $spec['width'], $h / $spec['height']);
+        $plate = self::matched($name, $match, $accent);
+        $scale = $h / $spec['height'];
         $pw = $spec['width'] * $scale;
-        $ph = $spec['height'] * $scale;
-        $canvas->picture(self::matched($name, $match, $accent), 0, 0, $w, $h, 'cover');
+        $map = ['scale' => $scale, 'x' => 0.0, 'y' => 0.0, 'width' => $pw, 'height' => (float) $h];
 
-        return ['scale' => $scale, 'x' => ($w - $pw) / 2, 'y' => ($h - $ph) / 2, 'width' => $pw, 'height' => $ph];
+        if ($w > $pw * 1.02) {
+            [$a, $b] = self::wideBand($spec);
+            $extra = $w - $pw;
+            $out = imagecreatetruecolor($w, $h);
+            $sw = imagesx($plate);
+            $sh = imagesy($plate);
+            $sx0 = (int) round($a * $sw);
+            $sx1 = (int) round($b * $sw);
+            $dx0 = (int) round($a * $pw);
+            $dx1 = (int) round($b * $pw + $extra);
+            imagecopyresampled($out, $plate, 0, 0, 0, 0, $dx0, $h, $sx0, $sh);
+            imagecopyresampled($out, $plate, $dx0, 0, $sx0, 0, $dx1 - $dx0, $h, $sx1 - $sx0, $sh);
+            imagecopyresampled($out, $plate, $dx1, 0, $sx1, 0, $w - $dx1, $h, $sw - $sx1, $sh);
+            $canvas->picture($out, 0, 0, $w, $h, 'cover');
+            $map['gap'] = [$a, $b, $extra];
+
+            return $map;
+        }
+
+        // Same proportions, or a narrower canvas: scale to the height and keep the left part (logo, headline, book), crop the right edge.
+        $focus = $pw > $w ? 0.12 : 0.0;
+        $canvas->picture($plate, 0, 0, $w, $h, 'cover', 0, [$focus, 0.5]);
+        $map['x'] = -max(0.0, $pw - $w) * $focus;
+
+        return $map;
+    }
+
+    /** The empty background that is widened for a wider canvas: from half way to 80% of the headline zone's width. @return float[] fractions of the plate */
+    private static function wideBand(array $spec): array
+    {
+        $zone = $spec['zone'] ?? [0.07, 0, 0.5, 1];
+        $width = $zone[2] - $zone[0];
+
+        return [$zone[0] + 0.5 * $width, $zone[0] + 0.8 * $width];
     }
 
     /**
      * Turn a rectangle given as plate fractions [x0, y0, x1, y1] into canvas pixels [x, y, width, height].
      *
-     * @param array{scale:float,x:float,y:float,width:float,height:float} $map from paint()
-     * @param float[]                                                     $fractions
+     * @param array{scale:float,x:float,y:float,width:float,height:float,gap?:array{0:float,1:float,2:float}} $map from paint()
+     * @param float[]                                                                                          $fractions
      * @return int[]
      */
     public static function rect(array $fractions, array $map): array
     {
-        $x = $map['x'] + $fractions[0] * $map['width'];
-        $y = $map['y'] + $fractions[1] * $map['height'];
+        $x0 = self::mapX($fractions[0], $map);
+        $x1 = self::mapX($fractions[2], $map);
 
         return [
-            (int) round($x),
-            (int) round($y),
-            (int) round(($fractions[2] - $fractions[0]) * $map['width']),
+            (int) round($x0),
+            (int) round($map['y'] + $fractions[1] * $map['height']),
+            (int) round($x1 - $x0),
             (int) round(($fractions[3] - $fractions[1]) * $map['height']),
         ];
+    }
+
+    private static function mapX(float $f, array $map): float
+    {
+        if (isset($map['gap'])) {
+            [$a, $b, $extra] = $map['gap'];
+            if ($f >= $b) {
+                return $map['x'] + $f * $map['width'] + $extra;
+            }
+            if ($f > $a) {
+                return $map['x'] + $a * $map['width'] + ($f - $a) / ($b - $a) * (($b - $a) * $map['width'] + $extra);
+            }
+        }
+
+        return $map['x'] + $f * $map['width'];
     }
 
     /** The colour variants of a template family: the ten generic ones by default, or the two 'category' ones. @return string[] */
